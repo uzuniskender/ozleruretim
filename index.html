@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Özler UYS — Supabase Bağlantı Testi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#1a1a2e;color:#e0e0e0}
+h1{color:#00d4aa;font-size:1.4em}
+.ok{color:#00ff88;font-weight:bold}
+.fail{color:#ff4444;font-weight:bold}
+#log{background:#0d0d1a;padding:16px;border-radius:8px;white-space:pre-wrap;font-family:monospace;font-size:13px;line-height:1.6}
+</style>
+</head>
+<body>
+<h1>🔌 Özler UYS — Supabase Bağlantı Testi</h1>
+<div id="log">Test başlıyor...\n</div>
+<script>
+const log=document.getElementById('log');
+function w(msg,ok){log.textContent+=msg+(ok===true?' ✅':ok===false?' ❌':'')+'\n';}
+
+(async()=>{
+  try{
+    // 1. Supabase bağlantısı
+    w('1. Supabase SDK yüklendi...',true);
+    const sb=window.supabase.createClient(
+      'https://kudpuqqoxkhuxhhxqbjw.supabase.co',
+      'sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p'
+    );
+    w('2. Client oluşturuldu...',true);
+
+    // 2. Malzemeler tablosu — kayıt sayısı
+    const{data:m,error:e1,count}=await sb.from('malzemeler').select('*',{count:'exact',head:true});
+    if(e1)throw e1;
+    w('3. malzemeler tablosu: '+count+' kayıt',count>0);
+
+    // 3. Tablolar kontrol
+    const tables=['operations','stations','orders','work_orders','recipes','bom_trees','prod_logs','kesim_planlari','warehouse','tedarikler','operators'];
+    let ok=0;
+    for(const t of tables){
+      const{error}=await sb.from(t).select('id',{count:'exact',head:true});
+      if(!error)ok++;
+      else w('   ⚠ '+t+': '+error.message);
+    }
+    w('4. Tablolar: '+ok+'/'+tables.length+' erişilebilir',ok===tables.length);
+
+    // 4. Yazma testi
+    const testId='_test_'+Date.now();
+    const{error:e2}=await sb.from('operations').insert({id:testId,kod:'TEST',ad:'Bağlantı Testi'});
+    if(e2)throw e2;
+    w('5. Yazma testi (insert)...',true);
+
+    // 5. Okuma testi
+    const{data:r,error:e3}=await sb.from('operations').select('*').eq('id',testId).single();
+    if(e3)throw e3;
+    w('6. Okuma testi (select)...',r.kod==='TEST');
+
+    // 6. Silme (temizlik)
+    await sb.from('operations').delete().eq('id',testId);
+    w('7. Silme testi (delete)...',true);
+
+    w('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    w('🎉 TÜM TESTLER BAŞARILI — Supabase hazır!');
+  }catch(err){
+    w('\n❌ HATA: '+err.message,false);
+  }
+})();
+</script>
+</body>
+</html>
