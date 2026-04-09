@@ -1,0 +1,840 @@
+# Özler UYS — Supabase'e Geçiş Rehberi
+
+## Adım 1: Supabase Projesi Oluştur
+1. **https://supabase.com** → Sign Up / Log In
+2. **New Project** → Proje adı: `ozler-uys`
+3. Şifre belirle (DB password — güvenli tut)
+4. Region: **Frankfurt (eu-central-1)** — Türkiye'ye en yakın
+5. Proje oluşturulana kadar ~2 dk bekle
+
+## Adım 2: Şemayı Oluştur
+1. Sol menü → **SQL Editor**
+2. `uys_supabase_schema.sql` dosyasının tamamını yapıştır → **Run**
+3. Hata yoksa "Success" mesajı gelir
+4. Ardından `seed_malzemeler.sql` dosyasını yapıştır → **Run** (529 malzeme yüklenir)
+
+## Adım 3: API Bilgilerini Al
+1. Sol menü → **Settings** → **API**
+2. Şunları kopyala:
+   - **Project URL:** `https://xxxxx.supabase.co`
+   - **anon public key:** `eyJhbGciOi...`
+3. `uys_supabase_adapter.js` dosyasında bu değerleri yapıştır:
+```js
+const SUPABASE_URL = 'https://xxxxx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOi...';
+```
+
+## Adım 4: HTML Dosyasını Güncelle
+`uretim_v22.html` (veya v23) dosyasının `<head>` bölümüne ekle:
+
+```html
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- UYS Supabase Adaptör -->
+<script src="uys_supabase_adapter.js"></script>
+```
+
+## Adım 5: Hosting (Netlify)
+1. **GitHub** → Yeni repo oluştur: `ozler-uys`
+2. Dosyaları push et:
+   - `index.html` (uretim_v23.html'in yeni adı)
+   - `uys_supabase_adapter.js`
+3. **https://netlify.com** → "New site from Git" → GitHub repo seç
+4. Build settings: boş bırak (statik site)
+5. Deploy → URL alırsın: `https://ozler-uys.netlify.app`
+
+## Adım 6: İlk Migrasyon
+1. Mevcut verilerin olduğu tarayıcıda yeni URL'yi aç
+2. Konsol otomatik çalışır: `localStorage → Supabase migrasyon başlıyor...`
+3. Tüm veriler aktarılır
+4. Artık başka cihazdan da aynı URL'yi aç → aynı verileri görürsün
+
+---
+
+## GEÇİŞ STRATEJİSİ
+
+### Faz 1 — Paralel Çalışma (Şu an)
+- localStorage hâlâ çalışır (offline cache)
+- Supabase'e de yazılır
+- Veri kaybı riski sıfır
+
+### Faz 2 — Supabase Öncelikli
+- `loadAllFromSupabase()` ile başla
+- localStorage sadece offline fallback
+- Mevcut `store.get/set` kaldırılır
+
+### Faz 3 — Auth Entegrasyonu
+- Supabase Auth ile login ekranı
+- Roller: admin, operatör, misafir (read-only)
+- RLS aktifleştir — her kullanıcı sadece yetkili olduğu verileri görsün
+
+### Faz 4 — Realtime
+- `supabase.channel('uys').on('postgres_changes', ...)` ile
+  birden fazla kullanıcı aynı anda çalışırken canlı güncelleme
+
+---
+
+## DOSYA LİSTESİ
+
+| Dosya | Açıklama |
+|-------|----------|
+| `uys_supabase_schema.sql` | 21 tablo + indexler |
+| `seed_malzemeler.sql` | 529 malzeme seed data |
+| `uys_supabase_adapter.js` | Store adaptörü + migrasyon |
+| Bu rehber | Kurulum adımları |
+
+-- SEED DATA: OZLER_MALZEME_DB -> malzemeler tablosu
+-- 529 kayit
+
+INSERT INTO malzemeler (kod, ad, tip, birim, op_id) VALUES
+  ('H0101C030013690', 'ÇELİK - BORU Ø57x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030013696', 'ÇELİK - BORU Ø38x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028055', 'ÇELİK - BORU Ø60,3x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028075', 'ÇELİK - BORU Ø40x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028212', 'ÇELİK - BORU Ø42,4x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028214', 'ÇELİK - BORU Ø60,3x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028371', 'ÇELİK - BORU Ø42,4x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028538', 'ÇELİK - BORU Ø60,3x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028544', 'ÇELİK - BORU Ø60,3x4 mm - 6100 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030028902', 'ÇELİK - BORU Ø60,3x3 mm - 5500 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029007', 'ÇELİK - BORU Ø76,1x5 mm - 4000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029051', 'ÇELİK - BORU Ø33,7x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029063', 'ÇELİK - BORU Ø60,3x4 mm - 5500 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029210', 'ÇELİK - BORU Ø48,3x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029268', 'ÇELİK - BORU Ø38x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029359', 'ÇELİK - BORU Ø76,1x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029371', 'ÇELİK - BORU Ø48,3x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029423', 'ÇELİK - BORU Ø33,7x2 mm - 4150 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029427', 'ÇELİK - BORU Ø26,9x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029534', 'ÇELİK - BORU Ø48,3x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029598', 'ÇELİK - BORU Ø33,7x2 mm - 5150 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029604', 'ÇELİK - BORU Ø33,7x2 mm - 4700 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029747', 'ÇELİK - BORU Ø26,9x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029779', 'ÇELİK - BORU Ø33,7x2 mm - 5700 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030029898', 'ÇELİK - BORU Ø48,3x3 mm - 5500 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030030266', 'ÇELİK - BORU Ø48,3x3 mm - 6060 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030030475', 'ÇELİK - BORU Ø26,9x2 mm - 5700 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030030757', 'ÇELİK - BORU Ø48,3x4 mm - 5450 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030030847', 'ÇELİK - BORU Ø33,7x2 mm - 4950 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030031250', 'ÇELİK - BORU Ø88,9x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030036489', 'ÇELİK - BORU Ø101,6x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030044639', 'ÇELİK - BORU Ø60,3x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030044800', 'ÇELİK - BORU Ø42,4x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030045323', 'ÇELİK - BORU Ø48,3x3,2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030045685', 'ÇELİK - BORU Ø42,4x2,5 mm - 6500 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030046043', 'ÇELİK - BORU Ø26,9x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030046739', 'ÇELİK - BORU Ø48,3x2,5 mm - 6060 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030046898', 'ÇELİK - BORU Ø48,3x2,5 mm - 5620 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030047258', 'ÇELİK - BORU Ø48,3x2,5 mm - 5550 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030055610', 'ÇELİK - BORU Ø60,3x4 mm - 6100 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030056334', 'ÇELİK - BORU Ø38x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C030155587', 'ÇELİK - BORU Ø42,4x2 mm - 6500 mm - S235-JRH - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0101C030155716', 'ÇELİK - BORU Ø48,3x3 mm - 6000 mm - S235-JRH - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0101C030155925', 'ÇELİK - BORU Ø33,7x2 mm - 4150 mm - S235-JRH - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0101C030171449', 'ÇELİK - BORU Ø48,3x2,5 mm - 6000 mm - S235-JRH - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0101C030172344', 'ÇELİK - BORU Ø33,7x1,8 mm - 5150 mm - S235-JRH - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0101C060029595', 'ÇELİK - BORU Ø48,3x3 mm - 6000 mm - S355-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C060046412', 'ÇELİK - BORU Ø48,3x3,2 mm - 6130 mm - S355-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0101C060047267', 'ÇELİK - BORU Ø48,3x3,6 mm - 6050 mm - S355-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030010699', 'ÇELİK - PROFİL 20x10x1,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030010703', 'ÇELİK - PROFİL 40x20x1,2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030010896', 'ÇELİK - PROFİL 10x10x0,8 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030010967', 'ÇELİK - PROFİL 100x100x5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030011206', 'ÇELİK - PROFİL 30x30x1,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030011371', 'ÇELİK - PROFİL 30x30x1,5 mm - 4300 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030011705', 'ÇELİK - PROFİL 50x30x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030011892', 'ÇELİK - PROFİL 60x40x1,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030012403', 'ÇELİK - PROFİL 60x60x2,5 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030012564', 'ÇELİK - PROFİL 100x100x5 mm - 6540 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030020545', 'ÇELİK - PROFİL 100x50x2,9 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030022515', 'ÇELİK - PROFİL 40x20x2 mm - 6130 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030023018', 'ÇELİK - PROFİL 50x40x2 mm - 6130 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030084433', 'ÇELİK - PROFİL 20x20x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030084761', 'ÇELİK - PROFİL 40x20x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030084928', 'ÇELİK - PROFİL 40x30x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085097', 'ÇELİK - PROFİL 40x30x2 mm - 6100 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085264', 'ÇELİK - PROFİL 50x40x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085449', 'ÇELİK - PROFİL 40x20x2 mm - 6130 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085594', 'ÇELİK - PROFİL 60x40x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085596', 'ÇELİK - PROFİL 50x50x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085610', 'ÇELİK - PROFİL 40x40x2 mm - 6300 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085775', 'ÇELİK - PROFİL 70x50x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030085952', 'ÇELİK - PROFİL 50x40x2 mm - 6130 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086103', 'ÇELİK - PROFİL 25x25x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086133', 'ÇELİK - PROFİL 50x30x2 mm - 5250 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086260', 'ÇELİK - PROFİL 75x30x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086284', 'ÇELİK - PROFİL 90x50x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086433', 'ÇELİK - PROFİL 35x35x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086600', 'ÇELİK - PROFİL 75x50x2 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086634', 'ÇELİK - PROFİL 80x80x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086917', 'ÇELİK - PROFİL 30x20x1 mm - 4880 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030086924', 'ÇELİK - PROFİL 75X50X4 MM - 6000 MM - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030093044', 'ÇELİK - PROFİL 100x50x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030093207', 'ÇELİK - PROFİL 100x50x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030093899', 'ÇELİK - PROFİL 120x80x3 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030094062', 'ÇELİK - PROFİL 120x80x4 mm - 6000 mm - S235-JRH', 'Hammadde', 'Adet', NULL),
+  ('H0102C030235061', 'ÇELİK - PROFİL 60x40x3 mm - 6000 mm - S235-JRH - BOYALI', 'Hammadde', 'Adet', NULL),
+  ('H0102C050087791', 'ÇELİK - PROFİL 100x50x3 mm - 6000 mm - S355-J0H', 'Hammadde', 'Adet', NULL),
+  ('H0103C010015628', 'ÇELİK - PLAKA 3x1000x2000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010016443', 'ÇELİK - PLAKA 2x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010016600', 'ÇELİK - PLAKA 3x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010016759', 'ÇELİK - PLAKA 4x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010016920', 'ÇELİK - PLAKA 5x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010017083', 'ÇELİK - PLAKA 6x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010017099', 'ÇELİK - PLAKA 4x1500x1400 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010017415', 'ÇELİK - PLAKA 8x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010017433', 'ÇELİK - PLAKA 5x1500x1500 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010017928', 'ÇELİK - PLAKA 8x1500x1500 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010024203', 'ÇELİK - PLAKA 10x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010032502', 'ÇELİK - PLAKA 1,5x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010079466', 'ÇELİK - PLAKA 1,5x1500x3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0103C010086944', 'ÇELİK - PLAKA 2/3x1500x3000 mm - S235-JR - DAMLA DESENLİ', 'Hammadde', 'Adet', NULL),
+  ('H0103C010158490', 'ÇELİK - PLAKA 1,5x1500x3000 mm - S235-JR - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0103C040017305', 'ÇELİK - PLAKA 5x1500x3000 mm - S355-JR', 'Hammadde', 'Adet', NULL),
+  ('H0104C010046883', 'ÇELİK - KÖŞEBENT 30x30x3 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0104C010047221', 'ÇELİK - KÖŞEBENT 40x40x3 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0104C010072277', 'ÇELİK - KÖŞEBENT 120x120x12 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0105C010072747', 'ÇELİK - NPU 80 - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0105C010078855', 'ÇELİK - NPU 100 - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0105C010079006', 'ÇELİK - NPU 200 - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0105C010079159', 'ÇELİK - NPU 120 - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0106C010070659', 'ÇELİK - NPI 80 - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0107C010058824', 'ÇELİK - YUVARLAK MALZEME Ø14 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0107C010059011', 'ÇELİK - YUVARLAK MALZEME Ø18 mm - 3000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0107C010059391', 'ÇELİK - YUVARLAK MALZEME Ø17 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0107C010078068', 'ÇELİK - YUVARLAK MALZEME Ø12,5 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0108C010097520', 'ÇELİK - KARE MALZEME 70x70 mm - 6000 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0109C070035216', 'ÇELİK - RAPIDO-T PROFİL - 2 mm - 6050 mm - S355-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C070076715', 'ÇELİK - RAPID PROFİL - 2 mm - 6050 mm - S355-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C070077286', 'ÇELİK - RAPID PROFİL - 2 mm - 5450 mm - S355-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C080026027', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 6100 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C080027227', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 6700 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C080027434', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 6170 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C080027617', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 4650 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('H0109C080028017', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 6650 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('H0110C010045282', 'ÇELİK - RULO SAC 1,35x520 mm - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0110C010171872', 'ÇELİK - RULO SAC 1,35x520 mm - S235-JR - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0110C010172576', 'ÇELİK - RULO SAC 1,35x380 mm - S235-JR - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0113C010081109', 'ÇELİK - TIE-ROD - mm - 6000 mm - KAYNAKLANABİLİR - S235-JR', 'Hammadde', 'Adet', NULL),
+  ('H0113C090053152', 'ÇELİK - TIE-ROD 15/17 mm - 6000 mm - KAYNAKLANABİLİR - 25G2S - DYWIDAG', 'Hammadde', 'Adet', NULL),
+  ('H0201A030057523', 'ALÜMİNYUM - BORU Ø25x2 mm - 6000 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A030058555', 'ALÜMİNYUM - BORU Ø48x3 mm - 6000 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A030058563', 'ALÜMİNYUM - BORU Ø48x2 mm - 6010 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A030058613', 'ALÜMİNYUM - BORU Ø16x2 mm - 2910 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A030059335', 'ALÜMİNYUM - BORU Ø16x2 mm - 2905 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A030073628', 'ALÜMİNYUM - BORU Ø30x1,5 mm - 6000 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0201A040057143', 'ALÜMİNYUM - BORU Ø60x3 mm - 3000 mm - 6082-T6', 'Hammadde', 'Adet', NULL),
+  ('H0202A030042779', 'ALÜMİNYUM - PROFİL 50x30x2 mm - 6100 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0202A030043485', 'ALÜMİNYUM - PROFİL 60x40x2 mm - 4500 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0202A030043853', 'ALÜMİNYUM - PROFİL 60x30x2 mm - 5250 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0202A030060346', 'ALÜMİNYUM - PROFİL 40x20x1,5 mm - 5400 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030036159', 'ALÜMİNYUM - SLABMAX-1 PROFİL - 6050 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030042315', 'ALÜMİNYUM - ALU DOLGU PROFİL - 3050 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030066586', 'ALÜMİNYUM - RAPID-ALU-1 PROFİL - 3050 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030066632', 'ALÜMİNYUM - RAPID-ALU-3 PROFİL - 6000 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030067404', 'ALÜMİNYUM - RAPID-ALU-1 PROFİL - 6060 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A030069056', 'ALÜMİNYUM - RAPID-ALU-2 PROFİL - 5770 mm - 6063-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A040047754', 'ALÜMİNYUM - SLABDECK-1 PROFİL - 3050 mm - 6082-T6', 'Hammadde', 'Adet', NULL),
+  ('H0209A040050222', 'ALÜMİNYUM - SLABDECK-2 PROFİL - 5770 mm - 6082-T6', 'Hammadde', 'Adet', NULL),
+  ('H0311P010445957', 'AHŞAP - PLYWOOD 21x1500x3000 mm - HUŞ - FENOLİK', 'Hammadde', 'Adet', NULL),
+  ('H0311P010446412', 'AHŞAP - PLYWOOD 15x1500x3000 mm - HUŞ - FENOLİK', 'Hammadde', 'Adet', NULL),
+  ('H0311P010446434', 'AHŞAP - PLYWOOD 21x1500x3300 mm - HUŞ - FENOLİK', 'Hammadde', 'Adet', NULL),
+  ('H0517DD10194263', 'DÖKÜM - AYAR MİLİ SOMUNU Ø48 - ÇELİK - GALVANİZ', 'Hammadde', 'Adet', NULL),
+  ('H0923B030553992', 'BOYA - TOZ BOYA 20 kg - RAL2004 - ELEKTROSTATIK', 'Hammadde', 'Adet', NULL),
+  ('S0119CV20122985', 'ÇELİK - CİVATA M8x70 - 6.8 - GALVANİZ', 'Sarf', 'Adet', NULL),
+  ('S0120CV20155122', 'ÇELİK - SOMUN M8 - 6.8 - GALVANİZ', 'Sarf', 'Adet', NULL),
+  ('S0412PL10056791', 'PLASTİK - TIEROD TAPASI - Ø20', 'Sarf', 'Adet', NULL),
+  ('S0822DD10165199', 'AKSESUAR - PERÇİN 4,8x30 - ÇELİK - GALVANİZ', 'Sarf', 'Adet', NULL),
+  ('S0822DD10165869', 'AKSESUAR - PERÇİN 4,8x25 - ÇELİK - GALVANİZ', 'Sarf', 'Adet', NULL),
+  ('S0825ETK0038549', 'AKSESUAR - RAPID ETİKET - FOLYO', 'Sarf', 'Adet', NULL),
+  ('S0825ETK0052813', 'AKSESUAR - RAPIDO ETİKET - FOLYO', 'Sarf', 'Adet', NULL),
+  ('Y0102C050087954', 'ÇELİK - PROFİL 100x50x4 mm - 6000 mm - S355-J0H', 'YarıMamul', 'Adet', NULL),
+  ('H0109C080026419', 'ÇELİK - RAPIDO PROFİL - 2,5 mm - 6120 mm - S420-MC', 'Hammadde', 'Adet', NULL),
+  ('Y0101C010053400', 'ÇELİK - BORU Ø24/32x1 mm - 100 mm - S235-JR - KONİK BORU', 'YarıMamul', 'Adet', NULL),
+  ('Y0103C010166604', 'ÇELİK - PLAKA 2x16x48 mm - S235-JR - GALVANİZ - PİM DİLİ', 'YarıMamul', 'Adet', NULL),
+  ('Y0121C010038518', 'ÇELİK - PİM 18x55 - S235-JR - İSKELE PİMİ-DİLLİ', 'YarıMamul', 'Adet', NULL),
+  ('Y0121C010091515', 'ÇELİK - PİM 18x45 - S235-JR - İSKELE PİMİ', 'YarıMamul', 'Adet', NULL),
+  ('Y0121C010137242', 'ÇELİK - PİM 4x18 - S235-JR - GALVANİZ - YARIKLI PİM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100004', 'BORU BOY KESİM - Ø26,9x2mm - 42mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100009', 'BORU BOY KESİM - Ø26,9x2mm - 55mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100051', 'RAPIDO PROFIL AÇILI KAFA KESİM - 3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100052', 'RAPIDO PROFIL AÇILI KAFA KESİM - 1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100053', 'RAPIDO PROFIL AÇILI KAFA KESİM - 3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100054', 'RAPIDO PROFIL AÇILI KAFA KESİM - 2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100055', 'RAPIDO PROFIL AÇILI KAFA KESİM - 2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100056', 'RAPIDO PROFIL AÇILI KAFA KESİM - 2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100057', 'RAPIDO PROFIL AÇILI KAFA KESİM - 1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100058', 'RAPIDO PROFIL AÇILI KAFA KESİM - 1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100059', 'RAPIDO PROFIL AÇILI KAFA KESİM - 600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100060', 'RAPIDO PROFIL AÇILI KAFA KESİM - 900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100084', 'SAC PLAKA KESİM - 5mm - 34x50mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100111', 'PROFİL BOY KESİM VE DELİK DELME - 40x50x2mm - 663mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100112', 'PROFİL BOY KESİM VE DELİK DELME - 20x40x2mm - 663mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100113', 'SAC PLAKA KESİM 1,5mm - 150x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100114', 'BORU BOY KESİM Ø48,3x3 - 1990mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100115', 'BORU BOY KESİM Ø38x2,5 - 255mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100121', 'RAPID PROFIL AÇILI KAFA KESİM - 3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100122', 'RAPID PROFIL AÇILI KAFA KESİM - 1000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100134', 'SLABFORM ÇERÇEVE DİKMESİ BOY KESİM VE DELME - Ø60,3x3 - 2000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100135', 'SLABFORM ÇERÇEVE YATAYI BOY KESİM VE KURTAĞZI AÇMA - Ø48,3x2,5 - 1457mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100137', 'RAPIDO PANEL DİKEY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 215mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100138', 'RAPIDO PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 479mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100139', 'RAPIDO PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 779mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100140', 'RAPIDO PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 1079mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100142', 'RAPIDO UNI PROFİL BOY KESİM VE DELİK DELME - 50x100x4mm - 479mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100143', 'RAPIDO UNI PROFİL BOY KESİM VE DELİK DELME - 50x100x4mm - 779mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100144', 'RAPIDO UNI PROFİL BOY KESİM VE DELİK DELME - 50x100x4mm - 1079mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100145', 'RAPID PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x75x2mm - 987mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100149', 'RAPIDO PANEL 21mm PLYWOOD KESİM - 577x1477mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100150', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x877mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100151', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x1177mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100152', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x1777mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100153', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x2077mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100154', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x2377mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100155', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x2677mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100156', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x2977mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100157', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x577mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100158', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x1477mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100159', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x2077mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100160', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x1777mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100161', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x2377mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100162', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x2677mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100163', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x2977mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100164', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x3277mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100165', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x577mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100166', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x1177mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100167', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x1777mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100168', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x877mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100169', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x1177mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100170', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x1477mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100171', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x2077mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100172', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x2677mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100173', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x2377mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100174', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x2977mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100175', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1177x3277mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100176', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 877x877mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100177', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x3277mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100178', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x577mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100181', 'SLABFORM ÇERÇEVE ÇAPRAZI BOY KESİM VE EZME - Ø33,7x2 - 1890mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100183', 'RAPIDO PROFİL LEVYE YUVASI BASMA - 600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100199', 'RAPIDO PROFİL LEVYE YUVASI BASMA - 900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100215', 'RAPIDO PROFİL LEVYE YUVASI BASMA - 1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100247', 'BORU KAFA BÜZME Ø38x2,5 - 255mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100248', 'SAC PLAKA 1,5mm - 100x140mm - SS PANO MARKA SACI', 'YarıMamul', 'Adet', NULL),
+  ('YMH100265', 'SLABFORM ÇERÇEVE DİKMESİ BOY KESİM VE DELME - Ø60,3x4 - 1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100266', 'SLABFORM ÇERÇEVE DİKMESİ BOY KESİM VE DELME - Ø60,3x4 - 1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100271', 'SLABFORM ÇERÇEVE DİKMESİ BOY KESİM VE DELME - Ø60,3x4mm - 2000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100273', 'SLABFORM ÇERÇEVE 150 ÇAPRAZI BOY KESİM VE EZME - Ø33,7x2mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100274', 'SLABFORM ÇERÇEVE YATAYI BOY KESİM VE KURTAĞZI AÇMA - Ø48,3x2,5mm - 1457mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100276', 'SLABFORM ÇERÇEVE DİKMESİ BOY KESİM VE DELME - Ø60,3x4 - 1190mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100277', 'SLABFORM ÇERÇEVE 180/200 ÇAPRAZI BOY KESİM VE EZME - Ø33,7x2mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100278', 'SLABFORM ÇERÇEVE 120 ÇAPRAZI BOY KESİM VE EZME - Ø33,7x2mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100283', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2886mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100284', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2886mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100285', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2457mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100286', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2457mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100287', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2061mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100288', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2061mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100289', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 1722mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100290', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 1722mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100291', 'AYAR MİLİ DİŞ OVALAMA - Ø48x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100292', 'BORU BOY KESİM - Ø48,3x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100297', 'AYAR MİLİ TABAN PLAKASI PRES BASMA - FORM - 5x150x150mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100299', 'SAC PLAKA KESİM 5mm - 150x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100300', 'AYAR MİLİ DİŞ OVALAMA - Ø48x1000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100301', 'BORU BOY KESİM - Ø48,3x1000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100302', 'AYAR MİLİ TABAN PLAKASI PRES BASMA - EBATLAMA VE DELİK DELME - 5x150x150mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100304', 'AYAR MİLİ DİŞ OVALAMA - Ø48x800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100305', 'BORU BOY KESİM - Ø48,3x800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100306', 'AYAR MİLİ DYB PLAKASI + DYB KÖŞEBENT KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMH100307', 'DYB PLAKA KESİM - 8x165x250mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100308', 'DYB KÖŞEBENT DELME 40x40x3mm - 195mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100309', 'DYB KÖŞEBENT BOY KESİM 40x40x3mm - 195mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100310', 'RAPIDO PROFİL LEVYE YUVASI BASMA - 750mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100311', 'RAPIDO PROFIL AÇILI KAFA KESİM - 750mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100312', 'RAPIDO PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 629mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100313', 'RAPIDO UNI PROFİL BOY KESİM VE DELİK DELME - 50x100x4mm - 629mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100314', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 727x3277mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100315', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 727x2977mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100316', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2758mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100317', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2758mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100318', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2304mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100319', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2304mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100320', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 1875mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100321', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 1875mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100322', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 1493mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100323', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 1493mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100324', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2657mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100325', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2657mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100326', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 2183mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100327', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 2183mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100328', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 1723mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100329', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 1723mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100330', 'SLABFORM ÇAPRAZ BORUSU CİVATA DELİĞİ AÇMA - Ø33,7X2mm - 1294mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100331', 'SLABFORM ÇAPRAZ BORUSU PRES BOY KESİM VE DELİK DELME - Ø33,7x2mm - 1294mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100332', 'İSKELE EKLEME ELEMANI BORUSU Ø60 DELİK DELME', 'YarıMamul', 'Adet', NULL),
+  ('YMH100334', 'BORU BOY KESİM - Ø48,3x2,5mm - 160mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100335', 'İSKELE EKLEME ELEMANI PULU PRES KESİM 3mm - Ø70', 'YarıMamul', 'Adet', NULL),
+  ('YMH100336', 'SAC PLAKA KESİM - 3mm - 75x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100337', 'RAPIDO UNI KAYIT SAC KESİM - 5mm - 228x1079mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100338', 'SAC PLAKA PRES KESİM VE DELİK DELME - 5mm - 34x50mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100339', 'SAC PLAKA BANT KESİM - 5mm - 55x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100340', 'RAPIDO UNI PROFİL - U BÜKÜM - 50x100x1079mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100341', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 577x1477mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100342', 'RAPIDO PANEL 21mm PLYWOOD KESİM VE DELME - 1027x3277mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100343', 'RAPIDO PROFİL LEVYE YUVASI BASMA - 1050mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100344', 'RAPIDO PROFIL AÇILI KAFA KESİM - 1050mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100345', 'RAPIDO PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x100x3mm - 929mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100346', 'PROFİL BOY KESİM - 20X20X2MM - 254MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100347', 'RAPID PANEL TIE-ROD SAC PLAKA KESİM - 5MM - 75X249MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100348', 'RAPIDO UNI PROFİL BOY KESİM VE DELİK DELME - 50x100x4mm - 929mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100349', 'RAPID PROFIL AÇILI KAFA KESİM - 900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100350', 'RAPID PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50X75X2MM - 887MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100351', 'RAPIDO CALISMA KONSOLU FIKSTUR KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMH100352', 'RAPIDO IC KOSE FIKSTUR KAYNAK 30X40X330', 'YarıMamul', 'Adet', NULL),
+  ('YMH100353', 'RAPIDO IC KOSE YAN KAYIT KAYNAK MONTAJ - 3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100354', 'RAPID PROFIL AÇILI KAFA KESİM - 750MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100355', 'RAPID PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50X75X2MM - 737MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100356', 'RAPIDO IC PROFIL DELIK DELME - 3290MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100359', 'RAPID PROFIL AÇILI KAFA KESİM - 600MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100360', 'RAPID PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50X75X2MM - 587MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100364', 'RAPID PROFIL AÇILI KAFA KESİM - 500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100365', 'RAPID PANEL YATAY ARA KAYIT PROFİL BOY KESİM VE DELİK DELME - 50x75x2mm - 487mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100375', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 900MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100376', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 1200MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100377', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 1800MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100378', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 1500MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100379', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 2100MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100380', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 2400MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100381', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 2700MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100382', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100383', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 600MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100384', 'RAPIDO PANEL PROFIL UNI DELİK DELME - 3300MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100385', 'RAPID PANEL PROFIL UNI DELİK DELME - 3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100386', 'RAPID PANEL ÜST PROFIL DELİK DELME - 1000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100387', 'RAPID PANEL ÜST PROFIL DELİK DELME - 900MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100388', 'RAPID PANEL ÜST PROFIL DELİK DELME - 750MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100389', 'RAPID PANEL ÜST PROFIL DELİK DELME - 600MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100390', 'RAPID PANEL ÜST PROFIL DELİK DELME - 500MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100391', 'RAPID UNI PROFİL BOY KESİM VE DELİK DELME - 50X75X4MM - 987MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100392', 'RAPID UNI PROFİL BOY KESİM VE DELİK DELME - 50X75X4MM - 887MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100393', 'RAPID UNI PROFİL BOY KESİM VE DELİK DELME - 50X75X4MM - 737MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100394', 'RAPID UNI PROFİL BOY KESİM VE DELİK DELME - 50X75X4MM - 587MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100396', 'RAPID PANEL 15mm PLYWOOD KESİM VE DELME - 484x2984mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100397', 'RAPID PANEL 15mm PLYWOOD KESİM VE DELME - 984x2984mm', 'YarıMamul', 'Adet', NULL),
+  ('YMH100398', 'RAPID PANEL 15MM PLYWOOD KESİM VE DELME - 884X2984MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100399', 'RAPID PANEL 15MM PLYWOOD KESİM VE DELME - 734X2984MM', 'YarıMamul', 'Adet', NULL),
+  ('YMH100400', 'RAPID PANEL 15MM PLYWOOD KESİM VE DELME - 584X2984MM', 'YarıMamul', 'Adet', NULL),
+  ('YMK100000', 'RAPIDO-UNI PANEL BOYAMA - 1050x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100001', 'RAPIDO IC KOSE 30X40X330 PANEL BOYAMA', 'YarıMamul', 'Adet', NULL),
+  ('YMK100025', 'RAPIDO-UNI PANEL BOYAMA - 1200x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100026', 'RAPIDO-UNI PANEL BOYAMA - 1200x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100027', 'RAPIDO-UNI PANEL BOYAMA - 1200x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100028', 'RAPIDO-UNI PANEL BOYAMA - 1200x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100029', 'RAPIDO-UNI PANEL BOYAMA - 1200X2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100030', 'RAPIDO-UNI PANEL BOYAMA - 1200x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100031', 'RAPIDO-UNI PANEL BOYAMA - 1200x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100032', 'RAPIDO-UNI PANEL BOYAMA - 1200x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100033', 'RAPIDO-UNI PANEL BOYAMA - 1200x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100034', 'RAPIDO-UNI PANEL BOYAMA - 1200x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100035', 'RAPIDO-UNI PANEL BOYAMA - 900x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100036', 'RAPIDO-UNI PANEL BOYAMA - 900x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100037', 'RAPIDO-UNI PANEL BOYAMA - 900x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100038', 'RAPIDO-UNI PANEL BOYAMA - 900x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100039', 'RAPIDO-UNI PANEL BOYAMA - 900x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100040', 'RAPIDO-UNI PANEL BOYAMA - 900x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100041', 'RAPIDO-UNI PANEL BOYAMA - 900x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100042', 'RAPIDO-UNI PANEL BOYAMA - 900x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100043', 'RAPIDO-UNI PANEL BOYAMA - 900x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100044', 'RAPIDO-UNI PANEL BOYAMA - 900x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100045', 'RAPIDO-UNI PANEL BOYAMA - 600x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100046', 'RAPIDO-UNI PANEL BOYAMA - 600x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100047', 'RAPIDO-UNI PANEL BOYAMA - 600x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100048', 'RAPIDO-UNI PANEL BOYAMA - 600x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100049', 'RAPIDO-UNI PANEL BOYAMA - 600x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100050', 'RAPIDO-UNI PANEL BOYAMA - 600x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100051', 'RAPIDO-UNI PANEL BOYAMA - 600x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100052', 'RAPIDO-UNI PANEL BOYAMA - 600x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100053', 'RAPIDO-UNI PANEL BOYAMA - 600x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100054', 'RAPIDO-UNI PANEL BOYAMA - 600x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100057', 'SS TAM PANO-3P GALVANİZ KAPLAMA', 'YarıMamul', 'Adet', NULL),
+  ('YMK100059', 'RAPID-UNI PANEL BOYAMA - 1000x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100063', 'SLABFORM ÇERÇEVE GALVANİZ KAPLAMA - 1500X2000', 'YarıMamul', 'Adet', NULL),
+  ('YMK100066', 'SLABFORM ÇERÇEVE GALVANİZ KAPLAMA - 1500X2000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100067', 'SLABFORM ÇERÇEVE GALVANİZ KAPLAMA - 1500X1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100068', 'SLABFORM ÇERÇEVE GALVANİZ KAPLAMA - 1500X1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100069', 'SLABFORM ÇERÇEVE GALVANİZ KAPLAMA - 1500X1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100073', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 180-200/250', 'YarıMamul', 'Adet', NULL),
+  ('YMK100074', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 180-200/200', 'YarıMamul', 'Adet', NULL),
+  ('YMK100075', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 180-200/150', 'YarıMamul', 'Adet', NULL),
+  ('YMK100076', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 180-200/100', 'YarıMamul', 'Adet', NULL),
+  ('YMK100077', 'ALT AYAR MİLİ GALVANİZ KAPLAMA - Ø48x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100078', 'ALT AYAR MİLİ GALVANİZ KAPLAMA - Ø48x1000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100082', 'ALT AYAR MİLİ GALVANİZ KAPLAMA - Ø48x800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100083', 'AYAR MİLİ DYB GALVANİZ KAPLAMA - Ø48x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100084', 'AYAR MİLİ DYB GALVANİZ KAPLAMA - Ø48x1000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100085', 'AYAR MİLİ DYB GALVANİZ KAPLAMA - Ø48x800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100087', 'İSKELE EKLEME ELEMANI Ø60 GALVANİZ KAPLAMA', 'YarıMamul', 'Adet', NULL),
+  ('YMK100088', 'RAPIDO-UNI PANEL BOYAMA - 750x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100089', 'RAPIDO-UNI PANEL BOYAMA - 750x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMK100090', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 150/250', 'YarıMamul', 'Adet', NULL),
+  ('YMK100091', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 150/200', 'YarıMamul', 'Adet', NULL),
+  ('YMK100092', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 150/150', 'YarıMamul', 'Adet', NULL),
+  ('YMK100093', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 150/100', 'YarıMamul', 'Adet', NULL),
+  ('YMK100094', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 120/250', 'YarıMamul', 'Adet', NULL),
+  ('YMK100095', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 120/200', 'YarıMamul', 'Adet', NULL),
+  ('YMK100096', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 120/150', 'YarıMamul', 'Adet', NULL),
+  ('YMK100097', 'SLABFORM ÇAPRAZ BORUSU GALVANİZ KAPLAMA 120/100', 'YarıMamul', 'Adet', NULL),
+  ('YMK100099', 'RAPID-UNI PANEL BOYAMA - 500X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMK100100', 'RAPID-UNI PANEL BOYAMA - 900X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMK100101', 'RAPID-UNI PANEL BOYAMA - 750X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMK100102', 'RAPID-UNI PANEL BOYAMA - 600X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100001', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1050x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100004', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100009', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100013', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100015', 'RAPIDO-UNI PANEL 120x240 PLYWOOD MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100017', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100018', 'RAPIDO PANEL DİKEY ARA KAYIT PRES MONTAJ - 215mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100021', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100024', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100026', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100029', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100032', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100035', 'RAPIDO-UNI PANEL YAN KAYIT KAYNAK MONTAJ - 600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100046', 'RAPIDO PANEL YATAY ARA KAYIT PRES MONTAJ - 779mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100047', 'RAPIDO PANEL YATAY ARA KAYIT PRES MONTAJ - 1079mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100064', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100065', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100066', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100067', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100068', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100069', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100070', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100071', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100072', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100073', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100074', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100075', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100076', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100077', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100078', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100079', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100080', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100081', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 1200x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100082', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 1200x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100083', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100084', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100085', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100086', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100087', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100088', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100089', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100090', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100091', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100092', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100093', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100094', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100095', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100096', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100097', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100098', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100099', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100100', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100101', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 900x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100102', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 900x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100103', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100104', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100106', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100107', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100108', 'RAPIDO PANEL YATAY ARA KAYIT PRES MONTAJ - 479mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100109', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100110', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x2700mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100111', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100112', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x2400mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100113', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100114', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x2100mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100115', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100116', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100117', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100118', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100119', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100120', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100121', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100122', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x900mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100123', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 600x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100124', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 600x600mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100128', 'SS TAM PANO-3P PİM DİLİ MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100130', 'SS TAM PANO-3P FİKSTÜR KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100132', 'SS TAM PANO DİKME-KILAVUZ MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100133', 'RAPID-UNI PANEL PLYWOOD MONTAJ - 1000x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100134', 'RAPID UNI PANEL FİKSTÜR KAYNAK - 1000x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100135', 'RAPID PANEL YATAY ARA KAYIT PRES MONTAJ - 987mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100138', 'SLABFORM ÇERÇEVE FİKSTÜR KAYNAK 1500X2000', 'YarıMamul', 'Adet', NULL),
+  ('YMM100139', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 120x240', 'YarıMamul', 'Adet', NULL),
+  ('YMM100143', 'SLABFORM ÇERÇEVE FİKSTÜR KAYNAK 1500X2000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100144', 'SLABFORM ÇERÇEVE FİKSTÜR KAYNAK 1500X1800mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100145', 'SLABFORM ÇERÇEVE FİKSTÜR KAYNAK 1500X1500mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100146', 'SLABFORM ÇERÇEVE FİKSTÜR KAYNAK 1500X1200mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100147', 'SLABFORM ÇAPRAZ 180-200/150 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100148', 'SLABFORM ÇAPRAZ 180-200/250 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100149', 'SLABFORM ÇAPRAZ 180-200/200 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100150', 'SLABFORM ÇAPRAZ 180-200/100 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100152', 'AYAR MİLİ Ø48x1200mm + AYAR MİLİ TABAN PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100153', 'AYAR MİLİ Ø48x1000mm + AYAR MİLİ TABAN PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100154', 'ALT AYAR MİLİ Ø48 L=120 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100155', 'ALT AYAR MİLİ Ø48 L=100 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100157', 'ALT AYAR MİLİ Ø48 L=80 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100158', 'AYAR MİLİ Ø48x800mm + AYAR MİLİ TABAN PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100159', 'AYAR MİLİ DYB Ø48 L=120 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100160', 'AYAR MİLİ Ø48x1200mm + DYB PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100161', 'AYAR MİLİ DYB Ø48 L=100 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100162', 'AYAR MİLİ Ø48x1000mm + DYB PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100163', 'AYAR MİLİ DYB Ø48 L=80 + SOMUN MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100164', 'AYAR MİLİ Ø48x800mm + DYB PLAKASI KAYNAK', 'YarıMamul', 'Adet', NULL),
+  ('YMM100165', 'İSKELE EKLEME ELEMANI BORUSU Ø60 + 3mm PUL PRES MONTAJ', 'YarıMamul', 'Adet', NULL),
+  ('YMM100167', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 750x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100168', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 750x3300mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100169', 'RAPIDO PANEL YATAY ARA KAYIT PRES MONTAJ - 629mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100170', 'RAPIDO-UNI PANEL PLYWOOD MONTAJ - 750x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100171', 'RAPIDO UNI PANEL FİKSTÜR KAYNAK - 750x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100172', 'SLABFORM ÇAPRAZ 150/250 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100173', 'SLABFORM ÇAPRAZ 150/200 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100174', 'SLABFORM ÇAPRAZ 150/150 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100175', 'SLABFORM ÇAPRAZ 150/100 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100176', 'SLABFORM ÇAPRAZ 120/250 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100177', 'SLABFORM ÇAPRAZ 120/200 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100178', 'SLABFORM ÇAPRAZ 120/150 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100179', 'SLABFORM ÇAPRAZ 120/100 CİVATA MONTAJI', 'YarıMamul', 'Adet', NULL),
+  ('YMM100184', 'RAPID UNI PANEL FİKSTÜR KAYNAK - 500x3000mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100186', 'RAPID UNI PANEL FİKSTÜR KAYNAK - 900X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100187', 'RAPID PANEL YATAY ARA KAYIT PRES MONTAJ - 887MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100189', 'RAPID UNI PANEL FİKSTÜR KAYNAK - 750X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100190', 'RAPID PANEL YATAY ARA KAYIT PRES MONTAJ - 737MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100192', 'RAPID UNI PANEL FİKSTÜR KAYNAK - 600X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100193', 'RAPID PANEL YATAY ARA KAYIT PRES MONTAJ - 587MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100194', 'RAPID PANEL YATAY ARA KAYIT PRES MONTAJ - 487mm', 'YarıMamul', 'Adet', NULL),
+  ('YMM100199', 'RAPID İÇ KÖŞE FİKSTÜR KAYNAK 300X350X3000MM', 'YarıMamul', 'Adet', NULL),
+  ('YMM100345', 'RAPIDO PANEL YATAY ARA KAYIT PRES MONTAJ - 929mm', 'YarıMamul', 'Adet', NULL)
+ON CONFLICT (kod) DO NOTHING;
+
+// ============================================================
+// ÖZLER UYS — Supabase Store Adaptörü
+// Bu dosya mevcut store objesinin yerine geçer.
+// HTML dosyasında <script src="...supabase-js..."> sonrası yüklenir.
+// ============================================================
+
+// 1. SUPABASE BAĞLANTISI
+// Supabase dashboard > Settings > API'den alınacak değerler:
+const SUPABASE_URL = 'https://XXXXX.supabase.co';       // ← değiştir
+const SUPABASE_ANON_KEY = 'eyJhbGciOi...';              // ← değiştir
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 2. TABLO HARİTASI — S objesi key → Supabase tablo adı
+const TABLE_MAP = {
+  operations:      'operations',
+  stations:        'stations',
+  malzemeler:      'malzemeler',
+  bomTrees:        'bom_trees',
+  recipes:         'recipes',
+  warehouse:       'warehouse',
+  orders:          'orders',
+  workOrders:      'work_orders',
+  logs:            'prod_logs',
+  kesimPlanlari:   'kesim_planlari',
+  stokHareketler:  'stok_hareketler',
+  consumption:     'consumption',
+  fireLogs:        'fire_logs',
+  tedarikler:      'tedarikler',
+  tedarikciler:    'tedarikciler',
+  operators:       'operators',
+  durusKodlari:    'durus_kodlari',
+  izinler:         'izinler',
+  userLog:         'user_log',
+  customers:       'customers'
+};
+
+// 3. ALAN ADI DÖNÜŞÜMÜ — camelCase (JS) ↔ snake_case (DB)
+function toSnake(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(toSnake);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const sk = k.replace(/[A-Z]/g, m => '_' + m.toLowerCase());
+    // Özel alan dönüşümleri
+    const mapped = {
+      'orderId': 'order_id', 'woId': 'wo_id', 'opId': 'op_id',
+      'istId': 'ist_id', 'mamulKod': 'mamul_kod', 'mamulAd': 'mamul_ad',
+      'siparisNo': 'siparis_no', 'receteId': 'recete_id',
+      'hamMalkod': 'ham_malkod', 'hamMalad': 'ham_malad',
+      'whAlloc': 'wh_alloc', 'ieNo': 'ie_no', 'bomId': 'bom_id',
+      'hazirlikSure': 'hazirlik_sure', 'islemSure': 'islem_sure',
+      'firePct': 'fire_pct', 'parcaBoy': 'parca_boy', 'parcaEn': 'parca_en',
+      'hamBoy': 'ham_boy', 'hamEn': 'ham_en', 'kesimTip': 'kesim_tip',
+      'not': 'not_', 'opIds': 'op_ids', 'beklenenTarih': 'beklenen_tarih',
+      'gerceklesenTarih': 'gerceklesen_tarih', 'tedarikciId': 'tedarikci_id',
+      'durusDk': 'durus_dk', 'durusKod': 'durus_kod', 'sortOrder': 'sort_order'
+    }[k] || sk;
+    out[mapped] = (typeof v === 'object' && v !== null && !Array.isArray(v)) ? toSnake(v) : v;
+  }
+  return out;
+}
+
+function toCamel(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(toCamel);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const ck = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    const mapped = (k === 'not_') ? 'not' : ck;
+    out[mapped] = (typeof v === 'object' && v !== null && !Array.isArray(v)) ? toCamel(v) : v;
+  }
+  return out;
+}
+
+// 4. CRUD FONKSİYONLARI
+const db = {
+  // Tablodaki tüm kayıtları çek
+  async getAll(sKey) {
+    const table = TABLE_MAP[sKey];
+    if (!table) { console.warn('Bilinmeyen tablo:', sKey); return []; }
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) { console.error('getAll hata:', table, error); return []; }
+    return (data || []).map(toCamel);
+  },
+
+  // Tek kayıt ekle
+  async insert(sKey, record) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return null;
+    const row = toSnake(record);
+    const { data, error } = await supabase.from(table).insert(row).select().single();
+    if (error) { console.error('insert hata:', table, error); return null; }
+    return toCamel(data);
+  },
+
+  // Tek kayıt güncelle
+  async update(sKey, id, changes) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return null;
+    const row = toSnake(changes);
+    const { data, error } = await supabase.from(table).update(row).eq('id', id).select().single();
+    if (error) { console.error('update hata:', table, error); return null; }
+    return toCamel(data);
+  },
+
+  // Tek kayıt sil
+  async remove(sKey, id) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return false;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) { console.error('delete hata:', table, error); return false; }
+    return true;
+  },
+
+  // Çoklu kayıt sil
+  async removeMany(sKey, ids) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return false;
+    const { error } = await supabase.from(table).delete().in('id', ids);
+    if (error) { console.error('deleteMany hata:', table, error); return false; }
+    return true;
+  },
+
+  // Upsert (varsa güncelle, yoksa ekle)
+  async upsert(sKey, record) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return null;
+    const row = toSnake(record);
+    const { data, error } = await supabase.from(table).upsert(row).select().single();
+    if (error) { console.error('upsert hata:', table, error); return null; }
+    return toCamel(data);
+  },
+
+  // Toplu insert
+  async insertMany(sKey, records) {
+    const table = TABLE_MAP[sKey];
+    if (!table) return [];
+    const rows = records.map(toSnake);
+    const { data, error } = await supabase.from(table).insert(rows).select();
+    if (error) { console.error('insertMany hata:', table, error); return []; }
+    return (data || []).map(toCamel);
+  }
+};
+
+// 5. S OBJESİNİ SUPABASE'DEN YÜKLE (başlangıç)
+async function loadAllFromSupabase() {
+  const keys = Object.keys(TABLE_MAP);
+  const promises = keys.map(k => db.getAll(k));
+  const results = await Promise.all(promises);
+  keys.forEach((k, i) => { S[k] = results[i]; });
+  console.log('✅ Tüm veriler Supabase\'den yüklendi.');
+}
+
+// 6. saveS() DEĞİŞİKLİĞİ
+// Mevcut saveS() tüm S'yi localStorage'a yazıyor.
+// Supabase'de buna gerek yok — her CRUD zaten anında DB'ye yazıyor.
+// Ama geçiş döneminde localStorage'ı da cache olarak tutabiliriz:
+async function saveS() {
+  try { localStorage.setItem(SK, JSON.stringify(S)); } catch(e) {}
+  // Supabase'e yazmaya gerek yok — bireysel CRUD'lar zaten yazıyor
+}
+
+// 7. MİGRASYON YARDIMCISI — localStorage → Supabase (tek seferlik)
+async function migrateLocalStorageToSupabase() {
+  const raw = localStorage.getItem('uys_data');
+  if (!raw) { console.log('localStorage boş, migrasyon gerekli değil.'); return; }
+  
+  const data = JSON.parse(raw);
+  let count = 0;
+  
+  for (const [sKey, table] of Object.entries(TABLE_MAP)) {
+    const arr = data[sKey];
+    if (!arr || !Array.isArray(arr) || arr.length === 0) continue;
+    
+    console.log(`Migrating ${sKey}: ${arr.length} kayıt...`);
+    const rows = arr.map(toSnake);
+    
+    // Batch insert (Supabase max 1000/request)
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      const { error } = await supabase.from(table).upsert(batch, { onConflict: 'id' });
+      if (error) console.error(`  ❌ ${sKey} batch hata:`, error.message);
+      else count += batch.length;
+    }
+  }
+
+  // Ayarlar (S.ayarlar varsa)
+  if (data.ayarlar && typeof data.ayarlar === 'object') {
+    for (const [k, v] of Object.entries(data.ayarlar)) {
+      await supabase.from('ayarlar').upsert({ key: k, value: String(v) });
+    }
+  }
+
+  console.log(`✅ Migrasyon tamamlandı: ${count} kayıt aktarıldı.`);
+  
+  // Flag koy — tekrar çalışmasın
+  localStorage.setItem('_uys_migrated_supabase', '1');
+}
+
+// 8. BAŞLATMA
+async function initUYS() {
+  // İlk açılışta migrasyon kontrol
+  if (localStorage.getItem('_uys_migrated_supabase') !== '1') {
+    const raw = localStorage.getItem('uys_data');
+    if (raw) {
+      console.log('🔄 localStorage → Supabase migrasyon başlıyor...');
+      await migrateLocalStorageToSupabase();
+    }
+  }
+  
+  // Supabase'den yükle
+  await loadAllFromSupabase();
+  
+  // UI'ı başlat
+  if (typeof nav === 'function') nav('orders');
+}
+
+// Sayfa yüklendiğinde
+document.addEventListener('DOMContentLoaded', initUYS);
