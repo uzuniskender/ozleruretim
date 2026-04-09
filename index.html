@@ -622,12 +622,7 @@ const _sbUrl='https://kudpuqqoxkhuxhhxqbjw.supabase.co';
 const _sbKey='sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p';
 const _sb=(typeof window.supabase!=='undefined'&&!_isLocal)?window.supabase.createClient(_sbUrl,_sbKey):null;
 if(_sb)console.log('✅ Supabase bağlantısı kuruldu');
-const _apiBase=(function(){
- if(_isLocal)return null;
- var p=location.pathname;
- var dir=p.substring(0,p.lastIndexOf('/')+1);
- return dir+'api.php';
-})();
+const _apiBase=null; // Supabase kullanılıyor, api.php devre dışı
 const store={
  async get(k){
   // 1) Supabase (öncelik)
