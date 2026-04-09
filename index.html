@@ -51,21 +51,9 @@ var _H_DEF_DEL='wip92ny7q1';
   if(e.ctrlKey&&e.shiftKey&&['I','i','J','j','C','c'].indexOf(e.key)!==-1){e.preventDefault();return false;}
   if(e.ctrlKey&&['u','U','s','S'].indexOf(e.key)!==-1){e.preventDefault();return false;}
  },true);
- // 3) DevTools debugger trap
- var _dT=false;
- setInterval(function(){
-  if(_devMode) return;
-  var t0=performance.now();
-  debugger;
-  if(performance.now()-t0>100&&!_dT){
-   _dT=true;
-   document.title='\u26A0 Güvenlik Uyarısı';
-   document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a0a10;color:#f87171;font-family:monospace;font-size:18px;text-align:center;padding:40px"><div><div style="font-size:48px;margin-bottom:20px">\uD83D\uDD12</div><div>Geliştirici araçları algılandı.<br>Güvenlik nedeniyle sayfa devre dışı bırakıldı.<br><br><span style="font-size:13px;color:#fca5a5">Sayfayı kapatıp yeniden açın.</span></div></div></div>';
-  }
- },1500);
- // 4) Console devre dışı bırak (backup'lar saklı)
- var _noop=function(){};
- Object.keys(_conBackup).forEach(function(m){try{console[m]=_noop;}catch(e){}});
+ // 3) DevTools debugger trap — ONLINE MODDA DEVRE DIŞI
+ // Supabase Auth ile değiştirilecek
+ // 4) Console — ONLINE MODDA AKTİF
  // 5) Drag + print engeli
  document.addEventListener('DOMContentLoaded',function(){
   document.addEventListener('dragstart',function(e){if(_devMode)return;e.preventDefault();},true);
