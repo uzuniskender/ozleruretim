@@ -4598,8 +4598,13 @@ async function _buildWOs(oid,sno,urunler,whAllocs){
  if(_ordObj)_ordObj.mrpDurum='bekliyor';
  await saveS();updateBadges();
  closeModal();
- // ═══ OTOMATİK ZİNCİR: Kesim Planı → MRP → Tedarik ═══
- await autoZincir(oid, woIdx);
+ // Sistem test siparişlerinde zinciri atla
+ if(!(sno||'').startsWith('SYSRST_')&&!window._sistemTestAktif){
+  await autoZincir(oid, woIdx);
+ } else {
+  closeModal();
+  toast(woIdx+' iş emri oluşturuldu');
+ }
 
  if(noStWarnings.length){
  setTimeout(()=>toast(`⚠ ${noStWarnings.length} iş emrinde istasyon tanımlı değil — Reçete düzenleyerek atayabilirsiniz`),1500);
@@ -13783,6 +13788,7 @@ async function _sistemTestTemizle(){
  return eskiOrdIds.size;
 }
 async function runSistemTest(){
+ window._sistemTestAktif=true;
  var T={pass:0,fail:0,warn:0,results:[],log:[],startedAt:new Date().toISOString(),testData:{}};
  var _oids=[]; // Test sipariş ID'leri
  var _testPrefix='SYSRST_'+Date.now().toString(36).toUpperCase();
@@ -14331,6 +14337,7 @@ async function runSistemTest(){
  T.finishedAt=new Date().toISOString();
  T.summary={pass:T.pass,fail:T.fail,warn:T.warn,total:T.pass+T.fail+T.warn};
  tLog('\n=== TEST TAMAMLANDI: '+T.pass+' geçti / '+T.fail+' başarısız / '+T.warn+' uyarı ===');
+ window._sistemTestAktif=false;
 
  // Test verisini temizle
  T.testData.testSiparis=_oids.length;
@@ -14566,6 +14573,9 @@ async function fabrikaSifirlaOnayla(){
  S.tedarikler=[];
  S.orders=[];
  S.logs=[];
+ S.fireLogs=[];
+ S.operatorNotes=[];
+ S.activeWork=[];
  await saveS();
  closeModal();
  toast('Fabrika sıfırlandı — sayfa yenileniyor...');
