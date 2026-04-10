@@ -13448,9 +13448,10 @@ async function _sistemTestTemizle(){
  var prefix='SYSRST_';
  var eskiOrdIds=new Set((S.orders||[]).filter(function(o){return (o.siparisNo||'').startsWith(prefix);}).map(function(o){return o.id;}));
  S.orders=(S.orders||[]).filter(function(o){return !(o.siparisNo||'').startsWith(prefix);});
+ // testWoIds: filtrelemeden ÖNCE topla
+ var testWoIds=new Set((S.workOrders||[]).filter(function(w){return eskiOrdIds.has(w.orderId)||(w.ieNo||'').includes(prefix);}).map(function(w){return w.id;}));
  S.workOrders=(S.workOrders||[]).filter(function(w){return !eskiOrdIds.has(w.orderId)&&!(w.ieNo||'').includes(prefix);});
- // Kesim planlarını tamamen temizle (test WO'larına ait planlar)
- var testWoIds=new Set((S.workOrders||[]).filter(function(w){return eskiOrdIds.has(w.orderId);}).map(function(w){return w.id;}));
+ // Kesim planlarını temizle (sadece test WO'larına ait planlar)
  S.kesimPlanlari=(S.kesimPlanlari||[]).filter(function(p){
   if(!p.satirlar)return true;
   // Bu plana ait test WO'su var mı?
@@ -13477,8 +13478,7 @@ async function _sistemTestTemizle(){
   if((h.aciklama||'').includes('Tedarik teslim')&&eskiTedarikIds.has(h.tedarikId))return false;
   return true;
  });
- // Kesim planlarını TAMAMEN sıfırla (orphan planlar birikmesin)
- S.kesimPlanlari=[];
+ // Kesim planlarından sadece test kaynaklıları sil (gerçek planlar korunsun)
  S.tedarikler=(S.tedarikler||[]).filter(function(t){return !eskiOrdIds.has(t.orderId);});
  S.stokHareketler=(S.stokHareketler||[]).filter(function(h){return !(h.aciklama||'').includes('SistemTest');});
  await saveS();
@@ -14068,7 +14068,21 @@ function sistemTestIndir(){
  URL.revokeObjectURL(a.href);
  toast('Test raporu indirildi');
 }
+async function sistemTestGeriYukle(){
+ if(!window._testSnapshot){toast("Snapshot bulunamadı","err");return;}
+ if(!confirm("Test öncesi veriye geri dönülecek. Emin misiniz?"))return;
+ try{
+  var snap=JSON.parse(window._testSnapshot);
+  Object.keys(snap).forEach(function(k){S[k]=snap[k];});
+  await saveS();
+  window._testSnapshot=null;
+  closeModal();
+  toast("Test öncesi veriye geri yüklendi ✓");
+  nav("dashboard");
+ }catch(e){toast("Geri yükleme hatası: "+e.message,"err");}
+}
 async function sistemTestCalistir(){
+ window._testSnapshot=JSON.stringify(S);
  showModal('<div class="md md-lg"><div class="mt">⚙ Sistem Testi Çalışıyor...</div><div style="padding:20px;text-align:center;color:var(--t2)">Lütfen bekleyin, bu işlem 5-10 saniye sürebilir.</div></div>');
  await new Promise(function(r){setTimeout(r,200);});
  var T;
@@ -14106,6 +14120,7 @@ async function sistemTestCalistir(){
   +'<div class="mf">'
   +'<button class="btn bs" onclick="closeModal()">Kapat</button>'
   +'<button class="btn bcy" onclick="sistemTestIndir()">⬇ JSON İndir</button>'
+  +'<button class="btn bd" style="border-color:var(--amber);color:var(--amber)" onclick="sistemTestGeriYukle()">⏪ Test Öncesine Geri Yükle</button>'
   +'</div></div>';
 
  window._lastTestResult=T;
