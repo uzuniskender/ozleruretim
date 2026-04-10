@@ -946,16 +946,16 @@ function closeModal(){document.getElementById('modal-root').innerHTML='';}
 function syncKesimPlanlar(){
  // Kesim planı durumlarını üretim girişlerinden senkronize et
  (S.kesimPlanlari||[]).forEach(function(plan){
+  var _isLevha=(plan.hamEn||0)>0;
   plan.satirlar.forEach(function(satir){
    satir.kesimler.forEach(function(k){
     var w=getWO(k.woId);
     if(w){
-     // Üretim girişinden tamamlanan miktarı al
      var prod=wProd(w.id);
-     // tamamlandi: üretim miktarı veya mevcut değer (hangisi büyükse)
      k.tamamlandi=Math.max(k.tamamlandi||0, Math.min(prod, k.adet));
     }
    });
+   var eskiDurum=satir.durum;
    var tumTamam=satir.kesimler.every(function(k){
     var w=getWO(k.woId);
     if(w&&wPct(w)>=100)return true;
@@ -963,6 +963,40 @@ function syncKesimPlanlar(){
    });
    var birTamam=satir.kesimler.some(function(k){return (k.tamamlandi||0)>0;});
    satir.durum=tumTamam?'tamam':birTamam?'kismi':'bekliyor';
+   // ── Kesim artığı stoka giriş ──
+   if(satir.durum==='tamam'&&!satir._artikGirildi){
+    var kullanilanBoy=satir.kesimler.reduce(function(a,k){
+     return a+(_isLevha?(k.parcaBoy||0)*(k.parcaEn||0)*(k.adet||0):(k.parcaBoy||0)*(k.adet||0));
+    },0);
+    var hamTopBoy=_isLevha?(plan.hamBoy||0)*(plan.hamEn||0)*satir.hamAdet:(plan.hamBoy||0)*satir.hamAdet;
+    var artikMM=Math.round(hamTopBoy-kullanilanBoy);
+    if(artikMM>50&&!_isLevha){
+     // Artık malzeme kartı bul veya oluştur
+     var artikBoy=Math.round((plan.hamBoy||0)*satir.hamAdet-kullanilanBoy/satir.hamAdet);
+     var artikPerBar=Math.round((plan.hamBoy||0)-kullanilanBoy/satir.hamAdet);
+     var artikKod='ARTIK_'+plan.hamMalkod+'_'+artikPerBar+'mm';
+     var artikAd='KESİM ARTIĞI — '+(plan.hamMalad||plan.hamMalkod)+' — '+artikPerBar+'mm';
+     if(!S.malzemeler)S.malzemeler=[];
+     var mevcutMalz=(S.malzemeler||[]).find(function(m){return m.kod===artikKod;});
+     if(!mevcutMalz){
+      S.malzemeler.push({id:uid(),kod:artikKod,ad:artikAd,tip:'Hammadde',birim:'Adet',
+       boy:artikPerBar,en:null,kalinlik:null,minStok:0,artik:true,kaynakPlan:plan.id});
+     }
+     // Stok girişi
+     if(!S.stokHareketler)S.stokHareketler=[];
+     S.stokHareketler.push({
+      id:uid(),tarih:typeof today==='function'?today():new Date().toISOString().slice(0,10),
+      malkod:artikKod,malad:artikAd,miktar:satir.hamAdet,tip:'giris',
+      aciklama:'Kesim artığı — Plan: '+plan.hamMalkod+' × '+(plan.hamBoy||0)+'mm → '+artikPerBar+'mm artık × '+satir.hamAdet+' adet'
+     });
+     satir._artikGirildi=true;
+     satir._artikKod=artikKod;
+     satir._artikBoy=artikPerBar;
+     satir._artikAdet=satir.hamAdet;
+    } else {
+     satir._artikGirildi=true; // Artık yok veya çok küçük
+    }
+   }
   });
   var planTamam=plan.satirlar.every(function(s){return s.durum==='tamam';});
   var planKismi=plan.satirlar.some(function(s){return s.durum==='tamam'||s.durum==='kismi';});
