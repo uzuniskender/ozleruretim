@@ -5814,16 +5814,34 @@ function renderSevkiyat(){
 function showSevkModal(malkod){
  var m=(S.malzemeler||[]).find(function(x){return x.kod===malkod;});
  var stok=getStok(malkod);
- var ordOpts=(S.orders||[]).map(function(o){
-  return '<option value="'+o.id+'">'+esc(o.siparisNo)+' · '+esc(o.musteri||'')+'</option>';
+ // Sadece bu mamulü içeren siparişleri göster
+ var ilgiliOrds=(S.orders||[]).filter(function(o){
+  return o.mamulKod===malkod||(o.urunler||[]).some(function(u){return u.mamulKod===malkod;});
+ });
+ // Her sipariş için kalan sevk miktarını hesapla
+ var ordOpts=ilgiliOrds.map(function(o){
+  var sipAdet=0;
+  if(o.mamulKod===malkod)sipAdet=o.adet||0;
+  (o.urunler||[]).forEach(function(u){if(u.mamulKod===malkod)sipAdet+=u.adet||0;});
+  var oncekiSevk=(S.sevkler||[]).filter(function(s){return s.orderId===o.id&&s.malkod===malkod;}).reduce(function(a,s){return a+s.miktar;},0);
+  var kalan=Math.max(0,sipAdet-oncekiSevk);
+  return {id:o.id,sno:o.siparisNo,musteri:o.musteri||'',sipAdet:sipAdet,sevkEdilen:oncekiSevk,kalan:kalan};
+ }).filter(function(x){return x.kalan>0;});
+ var selectOpts=ordOpts.map(function(x){
+  return '<option value="'+x.id+'" data-kalan="'+x.kalan+'" data-sip="'+x.sipAdet+'" data-sevk="'+x.sevkEdilen+'">'+esc(x.sno)+' · '+esc(x.musteri)+' — Kalan: '+x.kalan+'/'+x.sipAdet+'</option>';
  }).join('');
+ window._sevkMalkod=malkod;window._sevkStok=stok;
  showModal('<div class="md md-sm">'
   +'<div class="mt">📦 Sevk Emri</div>'
   +'<div class="msub">'+esc(malkod)+' · '+esc(m?m.ad:'')+' — Stok: <strong>'+Math.round(stok)+'</strong></div>'
   +'<div class="fg"><label class="lbl">Sipariş</label>'
-  +'<select id="sevk-ord"><option value="">— Sipariş seç (opsiyonel) —</option>'+ordOpts+'</select></div>'
+  +'<select id="sevk-ord" onchange="sevkOrdDegisti()">'
+  +'<option value="">— Siparişsiz Sevk —</option>'
+  +selectOpts
+  +'</select></div>'
+  +'<div id="sevk-info"></div>'
   +'<div class="fg fg2">'
-  +'<div><label class="lbl">Miktar *</label><input type="number" id="sevk-mik" min="1" max="'+Math.round(stok)+'" value="'+Math.round(stok)+'" step="1"></div>'
+  +'<div><label class="lbl">Miktar *</label><input type="number" id="sevk-mik" min="1" max="'+Math.round(stok)+'" value="" step="1" placeholder="Sipariş seçin"></div>'
   +'<div><label class="lbl">Tarih</label><input type="date" id="sevk-tar" value="'+today()+'"></div>'
   +'</div>'
   +'<div class="fg"><label class="lbl">Açıklama</label><input id="sevk-not" placeholder="İrsaliye no, araç plakası vb."></div>'
@@ -5831,6 +5849,33 @@ function showSevkModal(malkod){
   +'<button class="btn bs" onclick="closeModal()">İptal</button>'
   +'<button class="btn bp" data-kod="'+esc(malkod)+'" onclick="saveSevk(this.dataset.kod)">Sevk Et</button>'
   +'</div></div>');
+ if(ordOpts.length===0){
+  document.getElementById('sevk-info').innerHTML='<div class="warn-box">Bu mamul için bekleyen sipariş yok. Siparişsiz sevk yapabilirsiniz.</div>';
+  document.getElementById('sevk-mik').max=Math.round(stok);
+  document.getElementById('sevk-mik').value=Math.min(1,Math.round(stok));
+ }
+}
+function sevkOrdDegisti(){
+ var sel=document.getElementById('sevk-ord');
+ var mikInp=document.getElementById('sevk-mik');
+ var info=document.getElementById('sevk-info');
+ if(!sel||!mikInp)return;
+ var opt=sel.options[sel.selectedIndex];
+ if(!sel.value){
+  // Siparişsiz sevk
+  mikInp.max=Math.round(window._sevkStok||0);
+  mikInp.value='';
+  mikInp.placeholder='Miktar girin';
+  if(info)info.innerHTML='<div class="warn-box">⚠ Siparişsiz sevk — stok mamul deposundan çıkacak, herhangi bir siparişe bağlı olmayacak.</div>';
+  return;
+ }
+ var kalan=parseInt(opt.dataset.kalan)||0;
+ var sipAdet=parseInt(opt.dataset.sip)||0;
+ var sevkEdilen=parseInt(opt.dataset.sevk)||0;
+ var maxMik=Math.min(kalan, Math.round(window._sevkStok||0));
+ mikInp.max=maxMik;
+ mikInp.value=maxMik;
+ if(info)info.innerHTML='<div class="info-box">Sipariş: '+sipAdet+' adet · Daha önce sevk: '+sevkEdilen+' · <strong>Kalan: '+kalan+'</strong></div>';
 }
 async function saveSevk(malkod){
  var mik=parseInt(document.getElementById('sevk-mik')?.value)||0;
@@ -5840,17 +5885,29 @@ async function saveSevk(malkod){
  if(mik<=0){toast('Geçerli miktar girin','err');return;}
  var stok=getStok(malkod);
  if(mik>stok){toast('Stok yetersiz! Mevcut: '+Math.round(stok),'err');return;}
+ // Sipariş seçildiyse kalan kontrolü
+ if(ordId){
+  var ord=getOrd(ordId);
+  var sipAdet=0;
+  if(ord){
+   if(ord.mamulKod===malkod)sipAdet=ord.adet||0;
+   (ord.urunler||[]).forEach(function(u){if(u.mamulKod===malkod)sipAdet+=u.adet||0;});
+  }
+  var oncekiSevk=(S.sevkler||[]).filter(function(s){return s.orderId===ordId&&s.malkod===malkod;}).reduce(function(a,s){return a+s.miktar;},0);
+  var kalan=Math.max(0,sipAdet-oncekiSevk);
+  if(mik>kalan){toast('Sipariş miktarı aşılamaz! Kalan: '+kalan,'err');return;}
+ }
  var m=(S.malzemeler||[]).find(function(x){return x.kod===malkod;});
- var ord=ordId?getOrd(ordId):null;
+ var ordObj=ordId?getOrd(ordId):null;
  if(!S.sevkler)S.sevkler=[];
  S.sevkler.push({
   id:uid(),tarih:tarih,malkod:malkod,malad:m?m.ad:'',miktar:mik,
-  orderId:ordId,siparisNo:ord?ord.siparisNo:'',musteri:ord?ord.musteri:'',not:not_
+  orderId:ordId,siparisNo:ordObj?ordObj.siparisNo:'',musteri:ordObj?ordObj.musteri:'',not:not_||(ordId?'':'Siparişsiz sevk')
  });
  if(!S.stokHareketler)S.stokHareketler=[];
  S.stokHareketler.push({
   id:uid(),tarih:tarih,malkod:malkod,malad:m?m.ad:'',miktar:mik,tip:'cikis',
-  aciklama:'Sevkiyat'+(ord?' — '+ord.siparisNo:'')+(not_?' — '+not_:'')
+  aciklama:'Sevkiyat'+(ordObj?' — '+ordObj.siparisNo:'')+(not_?' — '+not_:'')
  });
  await saveS();
  closeModal();
