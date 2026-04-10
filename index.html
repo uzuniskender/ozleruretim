@@ -2194,6 +2194,7 @@ function nav(p){
  updateBadges();
 }
 function updateBadges(){
+ if(window._sistemTestAktif)return; // Test sırasında atla
  try{
  const doneO=(S.orders||[]).filter(o=>ordPct(o.id)>=100).length;
  const el=id=>document.getElementById(id);
@@ -2209,41 +2210,45 @@ function updateBadges(){
  if(el('nb-opr'))el('nb-opr').textContent=(S.operators||[]).length;
  if(el('nb-tdc'))el('nb-tdc').textContent=(S.tedarikciler||[]).length;
  if(el('nb-dks'))el('nb-dks').textContent=(S.durusKodlari||[]).length;
- }catch(e){console.error('updateBadges hatası:',e);}
- // Kesim planları badge
+ }catch(e){}
  try{
   var bdgKP=document.getElementById('bdg-kesimplan');
   if(bdgKP){
    var bekleyenKP=(S.kesimPlanlari||[]).filter(function(p){return p.durum!=='tamamlandi';}).length;
    bdgKP.textContent=bekleyenKP>0?bekleyenKP:'';
   }
-  // ── Zincir durum göstergeleri ──
-  var zdEl=document.getElementById('zincir-durum');
-  if(zdEl&&S.orders){
-   var aktifOrds=(S.orders||[]).filter(function(o){return o.durum!=='Tamamlandı'&&o.durum!=='İptal';});
-   if(!aktifOrds.length){zdEl.innerHTML='';} else {
-    // Kesim: planı olmayan aktif kesim IE'leri
-    var planlananWoIds=new Set();
-    (S.kesimPlanlari||[]).forEach(function(p){(p.satirlar||[]).forEach(function(s){(s.kesimler||[]).forEach(function(k){planlananWoIds.add(k.woId);});});});
-    var kesimWOs=(S.workOrders||[]).filter(function(w){if(wPct(w)>=100||w.durum==='iptal')return false;var op=(S.operations||[]).find(function(o){return o.id===w.opId;});return(op?.ad||'').toUpperCase().includes('KES');});
-    var kesimEksik=kesimWOs.filter(function(w){return!planlananWoIds.has(w.id);}).length;
-    // MRP: mrpDurum kontrolü
-    var mrpEksik=aktifOrds.filter(function(o){return o.mrpDurum!=='tamamlandi';}).length;
-    // Tedarik: karşılanmamış kalemler
-    var tedEksik=(S.tedarikler||[]).filter(function(t){return!t.geldi&&t.durum!=='iptal';}).length;
-    function zBdg(ok,label,count,page){
-     var renk=ok?'var(--green)':'var(--red)';
-     var bg=ok?'rgba(16,185,129,.1)':'rgba(239,68,68,.1)';
-     var border=ok?'rgba(16,185,129,.25)':'rgba(239,68,68,.25)';
-     return '<div onclick="nav(\''+page+'\')" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;background:'+bg+';border:1px solid '+border+';font-size:10px;font-family:var(--mono);font-weight:600;color:'+renk+'" title="'+(ok?'Tamam':'Eksik: '+count)+'">'
-      +(ok?'✓':''+count)+' '+label+'</div>';
-    }
-    zdEl.innerHTML=zBdg(kesimEksik===0,'KESİM',kesimEksik,'kesimplan')
-     +zBdg(mrpEksik===0,'MRP',mrpEksik,'orders')
-     +zBdg(tedEksik===0,'TEDARİK',tedEksik,'warehouse');
-   }
-  }
+  // ── Zincir durum göstergeleri (debounced) ──
+  clearTimeout(window._zdTimer);
+  window._zdTimer=setTimeout(_updateZincirDurum,500);
  }catch(e){}
+}
+function _updateZincirDurum(){
+  var zdEl=document.getElementById('zincir-durum');
+  if(!zdEl||!S.orders)return;
+  var aktifOrds=(S.orders||[]).filter(function(o){return o.durum!=='Tamamlandı'&&o.durum!=='İptal';});
+  if(!aktifOrds.length){zdEl.innerHTML='';return;}
+  var planlananWoIds=new Set();
+  (S.kesimPlanlari||[]).forEach(function(p){(p.satirlar||[]).forEach(function(s){(s.kesimler||[]).forEach(function(k){planlananWoIds.add(k.woId);});});});
+  var opMap={};(S.operations||[]).forEach(function(o){opMap[o.id]=o;});
+  var kesimEksik=0;
+  (S.workOrders||[]).forEach(function(w){
+   if(wPct(w)>=100||w.durum==='iptal')return;
+   var op=opMap[w.opId];
+   if(!(op?.ad||'').toUpperCase().includes('KES'))return;
+   if(!planlananWoIds.has(w.id))kesimEksik++;
+  });
+  var mrpEksik=aktifOrds.filter(function(o){return o.mrpDurum!=='tamamlandi';}).length;
+  var tedEksik=(S.tedarikler||[]).filter(function(t){return!t.geldi&&t.durum!=='iptal';}).length;
+  function zBdg(ok,label,count,page){
+   var renk=ok?'var(--green)':'var(--red)';
+   var bg=ok?'rgba(16,185,129,.1)':'rgba(239,68,68,.1)';
+   var border=ok?'rgba(16,185,129,.25)':'rgba(239,68,68,.25)';
+   return '<div onclick="nav(\''+page+'\')" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;background:'+bg+';border:1px solid '+border+';font-size:10px;font-family:var(--mono);font-weight:600;color:'+renk+'" title="'+(ok?'Tamam':'Eksik: '+count)+'">'
+    +(ok?'✓':''+count)+' '+label+'</div>';
+  }
+  zdEl.innerHTML=zBdg(kesimEksik===0,'KESİM',kesimEksik,'kesimplan')
+   +zBdg(mrpEksik===0,'MRP',mrpEksik,'orders')
+   +zBdg(tedEksik===0,'TEDARİK',tedEksik,'warehouse');
 }
 function runMigration(){
  if(!S.customers)S.customers=[];
