@@ -4244,6 +4244,9 @@ function rWO(){
  </div></div>
  <div id="wo-rows"></div>
  </div>`;
+ // Checkbox'ları JS ile de checked yap (display:none bug workaround)
+ document.querySelectorAll('.wof-s-chk').forEach(function(c){c.checked=true;});
+ var _allCb=document.getElementById('wof-s-all');if(_allCb)_allCb.checked=true;
  renderWORows();
 }
 function rOrders(){
@@ -4281,13 +4284,15 @@ function rOrders(){
  </div>
  <div id="ord-grid"></div>`;
  selInit('ord');
+ document.querySelectorAll('.ord-s-chk').forEach(function(c){c.checked=true;});
+ var _allOrdCb=document.getElementById('ord-s-all');if(_allOrdCb)_allOrdCb.checked=true;
  filterOrders();
 }
 function filterOrders(){
  const q=(document.getElementById('ord-q')?.value||'').toLowerCase();
  var _chks=document.querySelectorAll('.ord-s-chk:checked');
  var _secili=new Set();_chks.forEach(function(c){_secili.add(c.value);});
- var _hepsi=_secili.size===document.querySelectorAll('.ord-s-chk').length;
+ var _hepsi=_secili.size===0||_secili.size===document.querySelectorAll('.ord-s-chk').length;
  const sortBy=document.getElementById('ord-sort')?.value||'oncelik';
  const el=document.getElementById('ord-grid');if(!el)return;
  let orders=S.orders.slice();
@@ -4981,7 +4986,7 @@ function renderWORows(){
  const q=(document.getElementById('wof-q')?.value||'').toLowerCase();
  var _woChks=document.querySelectorAll('.wof-s-chk:checked');
  var _woDurum=new Set();_woChks.forEach(function(c){_woDurum.add(c.value);});
- var _woHepsi=_woDurum.size===document.querySelectorAll('.wof-s-chk').length;
+ var _woHepsi=_woDurum.size===0||_woDurum.size===document.querySelectorAll('.wof-s-chk').length;
  const fg=document.getElementById('wo-grp-f')?.value||'mamul';
  var _grpBtns=document.getElementById('wo-grp-btns');if(_grpBtns)_grpBtns.style.display=(fg==='operasyon'||fg==='siparis')?'inline':'none';
  // Tip filtresi - çoklu seçim
