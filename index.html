@@ -212,7 +212,6 @@ input,select,textarea,.md,.main td{-webkit-user-select:text;-moz-user-select:tex
   <div id="p-entry" class="page"></div>
 <div id="p-kesimplan" class="page"></div>
   <div id="p-warehouse" class="page"></div>
-  <div id="p-sevkiyat" class="page"></div>
   <div id="p-bomtree" class="page"></div>
   <div id="p-recipes" class="page"></div>
   <div id="p-workorders" class="page"></div>
@@ -2190,7 +2189,7 @@ function nav(p){
  document.getElementById('p-'+p).classList.add('active');
  ({dashboard:rDash,orders:rOrders,workorders:rWO,entry:rEntry,warehouse:rWarehouse,
  bomtree:rBomTree,recipes:rRecipes,materials:rMalzYonetim,malzyonetim:rMalzYonetim,
- operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan,sevkiyat:rSevkiyat})[p]?.();
+ operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan})[p]?.();
  updateBadges();
 }
 function updateBadges(){
