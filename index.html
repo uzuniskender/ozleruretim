@@ -13858,6 +13858,7 @@ async function runSistemTest(){
  var sipSayiOncesi=(S.orders||[]).length;
 
  for(var si=0;si<testSiparisler.length;si++){
+  await new Promise(function(r){setTimeout(r,0);}); // Tarayıcıya nefes
   var sp=testSiparisler[si];
   var sno=_testPrefix+'-'+String(si+1).padStart(2,'0');
   var oid=uid();
@@ -13895,6 +13896,7 @@ async function runSistemTest(){
  // ─────────────────────────────────────────
  // TEST 3: Kesim Planı
  // ─────────────────────────────────────────
+ await new Promise(function(r){setTimeout(r,0);});
  tLog('\n=== KESİM PLANI ===');
  var _satirOncesi=(S.kesimPlanlari||[]).reduce(function(a,p){return a+(p.satirlar||[]).length;},0);
  var _planSayisiOncesi=(S.kesimPlanlari||[]).length;
@@ -13903,8 +13905,8 @@ async function runSistemTest(){
  (S.kesimPlanlari||[]).forEach(function(plan){
   var _isLevha=(plan.hamEn||0)>0;
   (plan.satirlar||[]).forEach(function(satir){
-   var _devam=true;
-   while(_devam){
+   var _devam=true;var _maxLoop=50;
+   while(_devam&&_maxLoop-->0){
     _devam=false;
     var _fireGercek=_isLevha
      ?Math.round((plan.hamBoy||0)*(plan.hamEn||0)*satir.hamAdet
@@ -13966,6 +13968,7 @@ async function runSistemTest(){
  // ─────────────────────────────────────────
  // TEST 4: MRP
  // ─────────────────────────────────────────
+ await new Promise(function(r){setTimeout(r,0);});
  tLog('\n=== MRP ===');
  var mrpSonuc=hesaplaMRP(_oids);
  T.testData.mrpSonuc=mrpSonuc.map(function(s){return {malkod:s.malkod,malad:s.malad.slice(0,40),brut:s.brut,stok:s.stok,net:s.net,durum:s.durum};});
@@ -13990,6 +13993,7 @@ async function runSistemTest(){
  // ─────────────────────────────────────────
  // TEST 5: Tedarik + Stok Girişi
  // ─────────────────────────────────────────
+ await new Promise(function(r){setTimeout(r,0);});
  tLog('\n=== TEDARİK & STOK ===');
  var stokOncesi=(S.stokHareketler||[]).length;
  if(!S.tedarikler)S.tedarikler=[];
@@ -14048,6 +14052,7 @@ async function runSistemTest(){
  // ─────────────────────────────────────────
  // TEST 6: Üretim Girişi
  // ─────────────────────────────────────────
+ await new Promise(function(r){setTimeout(r,0);});
  tLog('\n=== ÜRETİM GİRİŞİ (gerçekçi simülasyon) ===');
  var logOncesi=(S.logs||[]).length;
  if(!S.logs)S.logs=[];
@@ -14101,6 +14106,7 @@ async function runSistemTest(){
  (S.logs||[]).forEach(function(l){_woLogMap[l.woId]=(_woLogMap[l.woId]||0)+(l.qty||0);});
 
  for(var wi=0;wi<_tumUretimWOs.length;wi++){
+  if(wi%50===0)await new Promise(function(r){setTimeout(r,0);}); // Tarayıcıya nefes
   var w=_tumUretimWOs[wi];
   var _wOp=_opMapT[w.opId];
   var _opBolum=_wOp?(_wOp.bolum||''):'';
@@ -14472,8 +14478,8 @@ async function testModuBaslat(){
  (S.kesimPlanlari||[]).forEach(function(plan){
   var _isLevha=(plan.hamEn||0)>0;
   (plan.satirlar||[]).forEach(function(satir){
-   var _devam=true;
-   while(_devam){
+   var _devam=true;var _maxLoop=50;
+   while(_devam&&_maxLoop-->0){
     _devam=false;
     var _fireGercek=_isLevha
      ?Math.round((plan.hamBoy||0)*(plan.hamEn||0)*satir.hamAdet
