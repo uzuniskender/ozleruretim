@@ -201,12 +201,23 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-he
 const _sbUrl='https://kudpuqqxxkhuxhhxqbjw.supabase.co';
 const _sbKey='sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p';
 const sb=window.supabase.createClient(_sbUrl,_sbKey);
+// Operatör servis hesabı — otomatik auth
+async function ensureAuth(){
+ try{
+  const{data:{session}}=await sb.auth.getSession();
+  if(session)return true;
+  const{error}=await sb.auth.signInWithPassword({email:'iuzunn@hotmail.com',password:'Xgj6?a.wA3CT8e6'});
+  if(error){console.error('Auth hatası:',error.message);return false;}
+  return true;
+ }catch(e){console.warn('Auth:',e.message);return false;}
+}
 let S={operations:[],stations:[],orders:[],workOrders:[],logs:[],malzemeler:[],operators:[],durusKodlari:[],recipes:[],bomTrees:[],kesimPlanlari:[],stokHareketler:[],consumption:[],fireLogs:[],warehouse:[],tedarikler:[],tedarikciler:[],customers:[],izinler:[],userLog:[],operatorNotes:[],activeWork:[]};
 let _curTab='uretim',_curWO=null,_curUser=null,_fireVisible=false;
 const HIDE_DAYS=3;
 
 // === DATA ===
 async function loadData(){
+  await ensureAuth();
   try{const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();if(error)throw error;if(data?.value){S=Object.assign({},S,JSON.parse(data.value));setSync(true);}}
   catch(e){try{const lv=localStorage.getItem('uys_data');if(lv)S=Object.assign({},S,JSON.parse(lv));setSync(false);}catch(e2){}}
   if(!S.operatorNotes)S.operatorNotes=[];

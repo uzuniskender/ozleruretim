@@ -98,6 +98,19 @@ input,select,textarea,.md,.main td{-webkit-user-select:text;-moz-user-select:tex
 </style>
 </head>
 <body>
+<!-- ═══ LOGIN EKRANI ═══ -->
+<div id="authScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0a0e14;font-family:system-ui,sans-serif">
+  <div style="text-align:center;max-width:360px;padding:24px">
+    <div style="font-size:48px;margin-bottom:12px">⚙</div>
+    <h1 style="color:#00d4aa;font-size:22px;margin-bottom:4px">ÖZLER ÜRETİM</h1>
+    <p style="color:#5c657a;font-size:13px;margin-bottom:24px">Yönetim Sistemi Girişi</p>
+    <input type="email" id="authEmail" placeholder="E-posta" style="width:100%;padding:14px;margin-bottom:10px;background:#161a22;border:2px solid #1e232d;border-radius:10px;color:#f0f2f5;font-size:15px;outline:none;font-family:system-ui,sans-serif">
+    <input type="password" id="authPass" placeholder="Şifre" style="width:100%;padding:14px;margin-bottom:14px;background:#161a22;border:2px solid #1e232d;border-radius:10px;color:#f0f2f5;font-size:15px;outline:none;font-family:system-ui,sans-serif">
+    <button onclick="authLogin()" style="width:100%;padding:14px;background:#00d4aa;color:#0a0e14;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">GİRİŞ YAP</button>
+    <div id="authErr" style="color:#ff6b6b;font-size:12px;margin-top:10px"></div>
+    <div style="margin-top:20px;font-size:11px;color:#5c657a">Operatörler için: <a href="operator.html" style="color:#00d4aa">Operatör Paneli →</a></div>
+  </div>
+</div>
 <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" style="display:none;position:fixed;top:12px;left:12px;z-index:300;background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:18px">☰</button>
 <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
 <div class="shell" id="app" style="display:none">
@@ -14527,6 +14540,37 @@ async function saveAdminSifre(){
  await saveS();closeModal();toast('Yönetici şifresi güncellendi');
 }
 
+// ═══ SUPABASE AUTH ═══
+async function authLogin(){
+ const email=document.getElementById('authEmail').value.trim();
+ const pass=document.getElementById('authPass').value;
+ const err=document.getElementById('authErr');
+ if(!email||!pass){err.textContent='E-posta ve şifre girin';return;}
+ err.textContent='Giriş yapılıyor...';
+ try{
+  const{data,error}=await _sb.auth.signInWithPassword({email,password:pass});
+  if(error)throw error;
+  err.textContent='';
+  document.getElementById('authScreen').style.display='none';
+  startApp();
+ }catch(e){err.textContent='Hata: '+(e.message||e);}
+}
+async function checkAuth(){
+ if(!_sb){startApp();return;} // file:// modunda auth yok
+ try{
+  const{data:{session}}=await _sb.auth.getSession();
+  if(session){
+   document.getElementById('authScreen').style.display='none';
+   startApp();
+  }
+ }catch(e){console.warn('Auth kontrol:',e.message);}
+}
+function authLogout(){
+ if(_sb)_sb.auth.signOut();
+ document.getElementById('app').style.display='none';
+ document.getElementById('authScreen').style.display='flex';
+}
+function startApp(){
 loadS().then(()=>{
  // ── Şifre Migration: plaintext/btoa → hash ──
  (function(){
@@ -14613,6 +14657,10 @@ loadS().then(()=>{
  // Giriş ekranını göster
  showLoginScreen();
 });
+} // end startApp
+// Enter key for auth login
+document.getElementById('authPass')?.addEventListener('keydown',function(e){if(e.key==='Enter')authLogin();});
+checkAuth();
 </script>
 </body>
 </html>

@@ -79,6 +79,15 @@ h1{color:var(--acc);font-size:20px;margin-bottom:4px}
 const _sbUrl='https://kudpuqqxxkhuxhhxqbjw.supabase.co';
 const _sbKey='sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p';
 const sb=window.supabase.createClient(_sbUrl,_sbKey);
+async function ensureAuth(){
+ const{data:{session}}=await sb.auth.getSession();
+ if(session)return true;
+ const email=prompt('E-posta:');if(!email)return false;
+ const pass=prompt('Şifre:');if(!pass)return false;
+ const{error}=await sb.auth.signInWithPassword({email,password:pass});
+ if(error){alert('Giriş hatası: '+error.message);return false;}
+ return true;
+}
 const log=document.getElementById('log');
 function w(m){log.textContent+=new Date().toTimeString().slice(0,8)+' '+m+'\n';log.scrollTop=log.scrollHeight;}
 
@@ -242,8 +251,7 @@ function downloadJSON(text,filename){
 }
 
 // Başlat
-loadCurrentInfo();
-loadBackups();
+ensureAuth().then(ok=>{if(ok){loadCurrentInfo();loadBackups();}else{document.body.innerHTML='<div style="text-align:center;padding:60px;color:#ff6b6b">Giriş yapılamadı</div>';}});
 </script>
 </body>
 </html>
