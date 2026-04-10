@@ -4220,7 +4220,7 @@ function rWO(){
  <span id="wo-grp-btns" style="display:none"><button class="btn bs btn-sm" onclick="woGrpAll(true)">▼ Tümünü Aç</button>
  <button class="btn bs btn-sm" onclick="woGrpAll(false)">▲ Tümünü Kapat</button></span>
  <button class="btn bs" onclick="showYMIEListModal()">+ YM İş Emri</button></div>
- <div class="tw">
+ <div class="tw" style="overflow:visible">
  ${selToolbar('wo',{deleteLabel:'Seçilenleri Sil',exportLabel:'Excel Aktar',copyBtn:true})}
  <div class="tt"><div class="fr">
  <input id="wof-q" placeholder="İE no veya malzeme ara..." style="width:220px" oninput="renderWORows()"><select id="wo-grp-f" style="width:auto;min-width:140px" onchange="renderWORows()"><option value="mamul">Malzeme Bazı</option><option value="siparis">Sipariş Bazı</option><option value="operasyon">Operasyon Bazı</option></select>
@@ -4258,7 +4258,7 @@ function rOrders(){
  <button class="btn bs" onclick="autoOncelik()" title="Terminlere göre otomatik öncelik">⚡ Otomatik Sırala</button>
  <button class="btn bp" onclick="showNewOrderModal()">+ Yeni Sipariş</button>
  </div></div>
- <div class="tw" style="margin-bottom:12px"><div class="tt"><div class="fr">
+ <div class="tw" style="margin-bottom:12px;overflow:visible"><div class="tt"><div class="fr">
  <input id="ord-q" placeholder="Sipariş no veya müşteri ara..." style="width:220px" oninput="filterOrders()">
  <select id="ord-sort" onchange="filterOrders()" style="font-size:11px">
  <option value="oncelik">Öncelik Sırası</option>
