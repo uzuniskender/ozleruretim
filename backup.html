@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Özler UYS — Yedek Yönetimi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#0c0f14;--bg2:#161a22;--bg3:#1e232d;--t1:#f0f2f5;--t2:#9ba3b2;--t3:#5c657a;--acc:#00d4aa;--accD:rgba(0,212,170,.12);--warn:#ffb142;--err:#ff6b6b;--ok:#00e676;--r:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--t1);max-width:700px;margin:0 auto;padding:20px}
+h1{color:var(--acc);font-size:20px;margin-bottom:4px}
+.sub{color:var(--t3);font-size:12px;margin-bottom:20px}
+.card{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.card .info{flex:1}
+.card .date{font-size:14px;font-weight:600;font-family:monospace}
+.card .size{font-size:11px;color:var(--t3);margin-top:2px}
+.card .actions{display:flex;gap:6px}
+.btn{padding:8px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.btn:active{transform:scale(.95)}
+.btn.dl{background:var(--accD);color:var(--acc)}
+.btn.restore{background:#ff980020;color:#ff9800}
+.btn.del{background:#ff6b6b20;color:var(--err)}
+.btn.primary{background:var(--acc);color:var(--bg);width:100%;padding:12px;font-size:14px;margin-bottom:8px}
+.btn.secondary{background:var(--bg3);color:var(--t1);width:100%;padding:12px;font-size:14px;margin-bottom:8px}
+.btn:disabled{opacity:.4;pointer-events:none}
+.status{padding:12px;border-radius:var(--r);margin-bottom:16px;font-size:13px}
+.status.ok{background:#00e67620;color:var(--ok)}
+.status.warn{background:#ffb14220;color:var(--warn)}
+.status.err{background:#ff6b6b20;color:var(--err)}
+.loader{text-align:center;padding:40px;color:var(--t3)}
+.section{margin-top:24px;border-top:1px solid var(--bg3);padding-top:16px}
+.section h2{font-size:14px;color:var(--t2);margin-bottom:10px}
+#log{background:var(--bg2);padding:12px;border-radius:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;max-height:200px;overflow-y:auto;color:var(--t3);margin-top:12px}
+.upload-area{border:2px dashed var(--bg3);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:12px;cursor:pointer}
+.upload-area:hover{border-color:var(--acc)}
+.upload-area input{display:none}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3);font-size:13px}
+.stat-row .k{color:var(--t3)}.stat-row .v{font-weight:600;font-family:monospace}
+</style>
+</head>
+<body>
+
+<h1>🗄️ Yedek Yönetimi</h1>
+<div class="sub">Otomatik günlük yedekler · Son 30 gün saklanır</div>
+
+<div id="statusArea"></div>
+
+<!-- Mevcut veri özeti -->
+<div id="currentInfo"></div>
+
+<!-- Aksiyonlar -->
+<button class="btn primary" onclick="manualBackup()">📦 Şimdi Yedekle</button>
+<button class="btn secondary" onclick="downloadCurrent()">💾 Mevcut Veriyi İndir (JSON)</button>
+
+<!-- Yedek listesi -->
+<div class="section">
+  <h2>📋 Yedek Listesi</h2>
+  <div id="backupList"><div class="loader">Yükleniyor...</div></div>
+</div>
+
+<!-- Dosyadan geri yükleme -->
+<div class="section">
+  <h2>📂 Dosyadan Geri Yükle</h2>
+  <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+    <div style="font-size:24px;margin-bottom:8px">📁</div>
+    <div>JSON yedek dosyasını seçin</div>
+    <input type="file" id="fileInput" accept=".json,.txt" onchange="restoreFromFile(this)">
+  </div>
+</div>
+
+<div id="log"></div>
+
+<div style="margin-top:20px;text-align:center">
+  <a href="index.html" style="color:var(--acc);font-size:13px">← Ana Sisteme Dön</a>
+</div>
+
+<script>
+const _sbUrl='https://kudpuqqxxkhuxhhxqbjw.supabase.co';
+const _sbKey='sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p';
+const sb=window.supabase.createClient(_sbUrl,_sbKey);
+const log=document.getElementById('log');
+function w(m){log.textContent+=new Date().toTimeString().slice(0,8)+' '+m+'\n';log.scrollTop=log.scrollHeight;}
+
+// Mevcut veri bilgisi
+async function loadCurrentInfo(){
+  try{
+    const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+    if(error)throw error;
+    const d=JSON.parse(data.value);
+    const kb=Math.round(data.value.length/1024);
+    document.getElementById('currentInfo').innerHTML=`
+      <div style="background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:12px">
+        <div class="stat-row"><span class="k">Veri boyutu</span><span class="v">${kb} KB</span></div>
+        <div class="stat-row"><span class="k">Siparişler</span><span class="v">${(d.orders||[]).length}</span></div>
+        <div class="stat-row"><span class="k">İş Emirleri</span><span class="v">${(d.workOrders||[]).length}</span></div>
+        <div class="stat-row"><span class="k">Üretim Logları</span><span class="v">${(d.logs||[]).length}</span></div>
+        <div class="stat-row"><span class="k">Malzemeler</span><span class="v">${(d.malzemeler||[]).length}</span></div>
+        <div class="stat-row"><span class="k">Operatörler</span><span class="v">${(d.operators||[]).length}</span></div>
+        <div class="stat-row"><span class="k">Stok Hareketleri</span><span class="v">${(d.stokHareketler||[]).length}</span></div>
+      </div>`;
+    document.getElementById('statusArea').innerHTML=`<div class="status ok">✅ Supabase bağlantısı aktif — veri ${kb} KB</div>`;
+  }catch(e){
+    document.getElementById('statusArea').innerHTML=`<div class="status err">❌ Supabase bağlantı hatası: ${e.message}</div>`;
+    document.getElementById('currentInfo').innerHTML='';
+  }
+}
+
+// Yedek listesini yükle
+async function loadBackups(){
+  const list=document.getElementById('backupList');
+  try{
+    const{data,error}=await sb.from('ayarlar').select('key').like('key','uys_backup_%').order('key',{ascending:false});
+    if(error)throw error;
+    if(!data||data.length===0){list.innerHTML='<div style="color:var(--t3);text-align:center;padding:20px">Henüz yedek yok</div>';return;}
+    
+    let html='';
+    for(const row of data){
+      const dateStr=row.key.replace('uys_backup_','');
+      const dayName=new Date(dateStr).toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      // Boyut bilgisi için ayrı sorgu yapmıyoruz (performans), sadece tarih göster
+      html+=`<div class="card">
+        <div class="info">
+          <div class="date">${dateStr}</div>
+          <div class="size">${dayName}</div>
+        </div>
+        <div class="actions">
+          <button class="btn dl" onclick="downloadBackup('${row.key}')">💾</button>
+          <button class="btn restore" onclick="restoreBackup('${row.key}')">🔄</button>
+          <button class="btn del" onclick="deleteBackup('${row.key}')">🗑️</button>
+        </div>
+      </div>`;
+    }
+    html+=`<div style="font-size:11px;color:var(--t3);margin-top:8px;text-align:center">${data.length} yedek · 30 günden eski olanlar otomatik silinir</div>`;
+    list.innerHTML=html;
+    w(data.length+' yedek bulundu');
+  }catch(e){
+    list.innerHTML=`<div class="status err">Yedekler yüklenemedi: ${e.message}</div>`;
+  }
+}
+
+// Manuel yedek al
+async function manualBackup(){
+  w('Manuel yedek alınıyor...');
+  try{
+    const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+    if(error)throw error;
+    const now=new Date();
+    const key='uys_backup_'+now.toISOString().slice(0,10);
+    await sb.from('ayarlar').upsert({key,value:data.value});
+    w('✅ Yedek kaydedildi: '+key+' ('+Math.round(data.value.length/1024)+' KB)');
+    loadBackups();
+  }catch(e){w('❌ Hata: '+e.message);}
+}
+
+// Mevcut veriyi indir
+async function downloadCurrent(){
+  try{
+    const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+    if(error)throw error;
+    downloadJSON(data.value,'uys_mevcut_'+new Date().toISOString().slice(0,10)+'.json');
+    w('Mevcut veri indirildi');
+  }catch(e){w('❌ '+e.message);}
+}
+
+// Yedek indir
+async function downloadBackup(key){
+  w('İndiriliyor: '+key);
+  try{
+    const{data,error}=await sb.from('ayarlar').select('value').eq('key',key).single();
+    if(error)throw error;
+    downloadJSON(data.value,key+'.json');
+    w('✅ İndirildi: '+key);
+  }catch(e){w('❌ '+e.message);}
+}
+
+// Yedekten geri yükle
+async function restoreBackup(key){
+  if(!confirm('⚠️ DİKKAT!\n\nMevcut veriler '+key+' tarihli yedeğin verileriyle DEĞİŞTİRİLECEK.\n\nMevcut veriniz kaybolacak!\n\nÖnce mevcut veriyi indirmenizi öneriyoruz.\n\nDevam etmek istiyor musunuz?'))return;
+  if(!confirm('SON ONAY: Gerçekten geri yüklemek istiyor musunuz?'))return;
+  w('Geri yükleniyor: '+key);
+  try{
+    const{data,error}=await sb.from('ayarlar').select('value').eq('key',key).single();
+    if(error)throw error;
+    // Mevcut veriyi güvenlik yedeği olarak kaydet
+    const{data:cur}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+    if(cur){
+      const safeKey='uys_backup_restore_oncesi_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+      await sb.from('ayarlar').upsert({key:safeKey,value:cur.value});
+      w('Mevcut veri güvenlik yedeği alındı: '+safeKey);
+    }
+    // Yedeği geri yükle
+    await sb.from('ayarlar').upsert({key:'uys_data',value:data.value});
+    try{localStorage.setItem('uys_data',data.value);}catch(e){}
+    w('✅ Geri yükleme tamamlandı!');
+    w('Sayfayı yenileyin veya ana sistemi açın.');
+    loadCurrentInfo();
+    loadBackups();
+  }catch(e){w('❌ '+e.message);}
+}
+
+// Yedek sil
+async function deleteBackup(key){
+  if(!confirm(key+' tarihli yedeği silmek istiyor musunuz?'))return;
+  try{
+    await sb.from('ayarlar').delete().eq('key',key);
+    w('Silindi: '+key);
+    loadBackups();
+  }catch(e){w('❌ '+e.message);}
+}
+
+// Dosyadan geri yükle
+async function restoreFromFile(input){
+  const file=input.files[0];if(!file)return;
+  w('Dosya okunuyor: '+file.name);
+  try{
+    const text=await file.text();
+    const d=JSON.parse(text);
+    // Doğrulama
+    if(!d.operations&&!d.orders&&!d.workOrders){w('❌ Geçersiz yedek dosyası');return;}
+    const kb=Math.round(text.length/1024);
+    w('Dosya geçerli: '+kb+' KB — '+(d.orders||[]).length+' sipariş, '+(d.workOrders||[]).length+' iş emri');
+    if(!confirm('Bu dosyayı geri yüklemek istiyor musunuz?\n\n'+kb+' KB · '+(d.orders||[]).length+' sipariş · '+(d.workOrders||[]).length+' iş emri\n\nMevcut veriler DEĞİŞTİRİLECEK!'))return;
+    // Güvenlik yedeği
+    const{data:cur}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+    if(cur?.value){
+      const safeKey='uys_backup_restore_oncesi_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+      await sb.from('ayarlar').upsert({key:safeKey,value:cur.value});
+      w('Güvenlik yedeği alındı');
+    }
+    await sb.from('ayarlar').upsert({key:'uys_data',value:text});
+    try{localStorage.setItem('uys_data',text);}catch(e){}
+    w('✅ Dosyadan geri yükleme tamamlandı!');
+    loadCurrentInfo();loadBackups();
+  }catch(e){w('❌ '+e.message);}
+  input.value='';
+}
+
+function downloadJSON(text,filename){
+  const blob=new Blob([text],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+
+// Başlat
+loadCurrentInfo();
+loadBackups();
+</script>
+</body>
+</html>
