@@ -2350,6 +2350,7 @@ async function loadS(){
  if(needsSave)await store.set(SK,JSON.stringify(S));
 }
 async function saveS(){
+ if(window._suppressSave)return; // Test sırasında toplu kayıt için bastır
  if(isGuest&&isGuest()){console.log('[GUEST] save blocked');return;}
  try{
   const json=JSON.stringify(S);
@@ -13855,6 +13856,7 @@ async function runSistemTest(){
  var sipWoOncesi=(S.workOrders||[]).length;
  var sipSayiOncesi=(S.orders||[]).length;
 
+ window._suppressSave=true; // Toplu kayıt: arada saveS atla
  for(var si=0;si<testSiparisler.length;si++){
   var sp=testSiparisler[si];
   var sno=_testPrefix+'-'+String(si+1).padStart(2,'0');
@@ -13867,6 +13869,7 @@ async function runSistemTest(){
    adet:sp.adet,receteId:sp.rc.id,olusturma:today(),mrpDurum:'bekliyor'});
   await _buildWOs(oid,sno,urunler,{});
  }
+ window._suppressSave=false;
  await saveS();
 
  var sipWoSonrasi=(S.workOrders||[]).length;
@@ -14343,6 +14346,7 @@ async function runSistemTest(){
  T.summary={pass:T.pass,fail:T.fail,warn:T.warn,total:T.pass+T.fail+T.warn};
  tLog('\n=== TEST TAMAMLANDI: '+T.pass+' geçti / '+T.fail+' başarısız / '+T.warn+' uyarı ===');
  window._sistemTestAktif=false;
+ window._suppressSave=false;
 
  // Test verisini temizle
  T.testData.testSiparis=_oids.length;
@@ -14396,7 +14400,7 @@ async function sistemTestCalistir(){
  showModal('<div class="md md-lg"><div class="mt">⚙ Sistem Testi Çalışıyor...</div><div style="padding:20px;text-align:center;color:var(--t2)">Lütfen bekleyin, bu işlem 5-10 saniye sürebilir.</div></div>');
  await new Promise(function(r){setTimeout(r,200);});
  var T;
- try{T=await runSistemTest();}catch(e){closeModal();toast('Test hatası: '+e.message,'err');console.error(e);return;}
+ try{T=await runSistemTest();}catch(e){window._sistemTestAktif=false;window._suppressSave=false;closeModal();toast('Test hatası: '+e.message,'err');console.error(e);return;}
  
  var statusColor=function(s){return s==='PASS'?'var(--green)':s==='FAIL'?'var(--red)':'var(--amber)';};
  var statusBg=function(s){return s==='PASS'?'rgba(15,122,62,.1)':s==='FAIL'?'rgba(180,30,30,.1)':'rgba(176,96,16,.1)';};
