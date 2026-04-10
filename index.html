@@ -4254,14 +4254,14 @@ function rOrders(){
  <option value="tarih">Tarihe Göre</option>
  <option value="termin">Terminine Göre</option>
  </select>
- <select id="ord-s" onchange="filterOrders()">
- <option value="">Tüm Durumlar</option>
- <option value="done">Tamamlandı</option>
- <option value="active">Üretimde</option>
- <option value="bekleyen">Beklemede</option>
- <option value="iptal">İptal</option>
- <option value="late">⚠ Gecikmeli</option>
- </select>
+ <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;flex-wrap:wrap">
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-weight:600"><input type="checkbox" id="ord-s-all" checked onchange="ordDurumAll(this)"> Tümü</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="active" checked onchange="ordDurumChk()"> Üretimde</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="bekleyen" checked onchange="ordDurumChk()"> Beklemede</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="done" checked onchange="ordDurumChk()"> Tamamlandı</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="late" checked onchange="ordDurumChk()"> ⚠ Gecikmeli</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="iptal" checked onchange="ordDurumChk()"> İptal</label>
+ </div>
  </div></div></div>
  ${selToolbar('ord',{deleteLabel:'Seçilenleri Sil',exportLabel:'Excel Aktar'})}
  <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -4274,7 +4274,9 @@ function rOrders(){
 }
 function filterOrders(){
  const q=(document.getElementById('ord-q')?.value||'').toLowerCase();
- const sf=document.getElementById('ord-s')?.value||'';
+ var _chks=document.querySelectorAll('.ord-s-chk:checked');
+ var _secili=new Set();_chks.forEach(function(c){_secili.add(c.value);});
+ var _hepsi=_secili.size===document.querySelectorAll('.ord-s-chk').length;
  const sortBy=document.getElementById('ord-sort')?.value||'oncelik';
  const el=document.getElementById('ord-grid');if(!el)return;
  let orders=S.orders.slice();
@@ -4282,12 +4284,21 @@ function filterOrders(){
  else if(sortBy==='tarih') orders.sort((a,b)=>b.tarih.localeCompare(a.tarih));
  else if(sortBy==='termin') orders.sort((a,b)=>(a.termin||'9999').localeCompare(b.termin||'9999'));
  if(q)orders=orders.filter(o=>(o.siparisNo+(o.musteri||'')).toLowerCase().includes(q));
- if(sf==='done')orders=orders.filter(o=>ordPct(o.id)>=100||o.durum==='Tamamlandı');
- else if(sf==='active')orders=orders.filter(o=>o.durum==='Üretimde');
- else if(sf==='bekleyen')orders=orders.filter(o=>o.durum==='Beklemede');
- else if(sf==='iptal')orders=orders.filter(o=>o.durum==='İptal');
- else if(sf==='new')orders=orders.filter(o=>ordPct(o.id)===0);
- else if(sf==='late')orders=orders.filter(o=>ordPct(o.id)<100&&o.termin&&daysDiff(o.termin)<0);
+ if(!_hepsi){
+  orders=orders.filter(function(o){
+   var isDone=ordPct(o.id)>=100||o.durum==='Tamamlandı';
+   var isActive=!isDone&&ordPct(o.id)>0&&o.durum!=='İptal'&&o.durum!=='Beklemede';
+   var isBekleyen=o.durum==='Beklemede';
+   var isIptal=o.durum==='İptal';
+   var isLate=!isDone&&o.termin&&daysDiff(o.termin)<0;
+   if(_secili.has('done')&&isDone)return true;
+   if(_secili.has('active')&&isActive)return true;
+   if(_secili.has('bekleyen')&&isBekleyen)return true;
+   if(_secili.has('iptal')&&isIptal)return true;
+   if(_secili.has('late')&&isLate)return true;
+   return false;
+  });
+ }
  if(!orders.length){el.innerHTML=`<div class="empty"><p>Sonuç yok</p></div>`;return;}
  const today_=today();
 el.innerHTML=(function(){
@@ -12528,6 +12539,17 @@ function ieGrpAll(acik){
  });
 }
 
+function ordDurumAll(cb){
+ document.querySelectorAll('.ord-s-chk').forEach(function(c){c.checked=cb.checked;});
+ filterOrders();
+}
+function ordDurumChk(){
+ var all=document.querySelectorAll('.ord-s-chk');
+ var checked=document.querySelectorAll('.ord-s-chk:checked');
+ var allCb=document.getElementById('ord-s-all');
+ if(allCb)allCb.checked=all.length===checked.length;
+ filterOrders();
+}
 function ordGrpAll(acik){
  document.querySelectorAll('#ord-grid [data-grpid]').forEach(function(el){
   var grpId=el.dataset.grpid;
