@@ -2296,10 +2296,11 @@ async function saveS(){
   const kb=Math.round(json.length/1024);
   console.log('saveS:',kb,'KB');
   await store.set(SK,json);
+  // ═══ OTOMATİK GÜNLÜK YEDEK ═══
+  autoBackup(json);
  }catch(e){
   console.error('saveS hatası:',e.name,e.message);
   if(e.name==='QuotaExceededError'||e.message?.includes('quota')||e.message?.includes('exceeded')){
-   // localStorage doldu - sadece kritik verileri kaydet
    try{
     const slim={operations:S.operations,malzemeler:S.malzemeler,operators:S.operators,
      orders:S.orders,workOrders:S.workOrders,logs:S.logs.slice(-200),
@@ -2312,6 +2313,42 @@ async function saveS(){
    toast('Kayıt hatası: '+(e.message||e),'err');
   }
  }
+}
+// ═══ OTOMATİK YEDEKLEME SİSTEMİ ═══
+async function autoBackup(json){
+ try{
+  const today=new Date().toISOString().slice(0,10);
+  const bkKey='uys_backup_'+today;
+  // Bugün zaten yedek alındı mı? (localStorage flag)
+  if(localStorage.getItem('_bk_'+today)==='1')return;
+  // Supabase'e günlük yedek kaydet
+  if(_sb){
+   await _sb.from('ayarlar').upsert({key:bkKey,value:json});
+   localStorage.setItem('_bk_'+today,'1');
+   console.log('✅ Otomatik yedek:',bkKey,Math.round(json.length/1024),'KB');
+   // 30 günden eski yedekleri temizle
+   cleanOldBackups();
+  }
+ }catch(e){console.warn('Yedek hatası:',e.message);}
+}
+async function cleanOldBackups(){
+ try{
+  if(!_sb)return;
+  const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+  const cutStr='uys_backup_'+cutoff.toISOString().slice(0,10);
+  // 30 günden eski backup key'lerini sil
+  await _sb.from('ayarlar').delete().lt('key',cutStr).like('key','uys_backup_%');
+ }catch(e){console.warn('Eski yedek temizleme hatası:',e.message);}
+}
+// Manuel yedek indirme
+function downloadBackup(){
+ const json=JSON.stringify(S,null,2);
+ const blob=new Blob([json],{type:'application/json'});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download='uys_backup_'+new Date().toISOString().slice(0,10)+'_'+new Date().toTimeString().slice(0,5).replace(':','')+'.json';
+ a.click();
+ toast('Yedek indirildi');
 }
 var _uidCounter=parseInt(localStorage.getItem('_uys_uid_cnt')||'0');
 const uid=(function(){
