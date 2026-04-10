@@ -149,7 +149,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-he
   <div class="inp-grp"><input type="number" class="qty-input" id="qtyInput" inputmode="numeric" min="0" placeholder="0" oninput="checkSaveReady()"></div>
   <div class="section-title" id="durusTitle" style="display:none">⏸ Duruş</div>
   <div id="durusSection" style="display:none"></div>
-  <button class="btn durus-btn" onclick="toggleDurus()" id="durusToggle">+ Duruş Ekle</button>
+  <button class="btn durus-btn" onclick="addDurus()" id="durusToggle">+ Duruş Ekle</button>
   <div class="inp-grp"><label>Not</label><input type="text" id="notInput" placeholder="Açıklama (opsiyonel)"></div>
   <div class="btn-row">
     <button class="btn primary" id="saveBtn" onclick="saveEntry()" disabled>✓ KAYDET</button>
@@ -282,7 +282,7 @@ function renderOzet(c){
   const myL=_curUser?tL.filter(l=>l.operatorId===_curUser.id||(l.operators||[]).some(o=>o.id===_curUser.id)):tL;
   c.innerHTML=`<div class="stat-grid"><div class="stat-card"><div class="stat-val" style="color:var(--acc)">${tQ}</div><div class="stat-lbl">Bugün Üretim</div></div><div class="stat-card"><div class="stat-val">${tL.length}</div><div class="stat-lbl">Giriş</div></div><div class="stat-card"><div class="stat-val">${aW}</div><div class="stat-lbl">Aktif İE</div></div><div class="stat-card"><div class="stat-val" style="color:var(--ok)">${cW}</div><div class="stat-lbl">Tamamlanan</div></div></div>
   <div class="section-title">📝 Bugünkü Girişlerim</div>
-  ${myL.length===0?'<div class="empty"><div class="msg">Henüz giriş yok</div></div>':myL.slice().reverse().map(l=>{const w=(S.workOrders||[]).find(x=>x.id===l.woId);const oN=(l.operators||[]).map(o=>{const op=(S.operators||[]).find(x=>x.id===o.id);return op?.ad||'?';}).join(', ');return`<div class="log-item"><div class="log-time">${l.saat||'—'}</div><div style="font-weight:600">${w?.malad||'—'} — ${l.qty||0} ad</div><div style="color:var(--t2);font-size:10px">${oN?'👷 '+oN:''} ${l.durusKod?'⏸ '+l.durusKod+' ('+l.durusDk+'dk)':''}</div></div>`;}).join('')}
+  ${myL.length===0?'<div class="empty"><div class="msg">Henüz giriş yok</div></div>':myL.slice().reverse().map(l=>{const w=(S.workOrders||[]).find(x=>x.id===l.woId);const oN=(l.operators||[]).map(o=>{const op=(S.operators||[]).find(x=>x.id===o.id);return op?.ad||'?';}).join(', ');return`<div class="log-item"><div class="log-time">${l.saat||'—'}</div><div style="font-weight:600">${w?.malad||'—'} — ${l.qty||0} ad</div><div style="color:var(--t2);font-size:10px">${oN?'👷 '+oN:''} ${l.duruslar&&l.duruslar.length?'⏸ '+l.duruslar.map(d=>d.kod+' ('+d.dk+'dk)').join(', '):(l.durusKod?'⏸ '+l.durusKod+' ('+l.durusDk+'dk)':'')}</div></div>`;}).join('')}
   <button class="btn secondary" onclick="loadData()" style="margin-top:12px">🔄 Yenile</button>`;
 }
 
@@ -331,14 +331,16 @@ function openWO(wid){
   document.getElementById('modalStok').innerHTML=sh;
   // Operators (#3,#9)
   document.getElementById('opEntries').innerHTML='';addOpEntry();
-  // Qty (#1)
+  // Qty (#5: max = kalan)
   const qi=document.getElementById('qtyInput');qi.value='';
-  qi.disabled=false;qi.placeholder=isDone?'Fazla üretim':'0';
-  // Durus
+  const kalan=Math.max(0,(w.hedef||0)-prod);
+  if(isDone){qi.disabled=true;qi.placeholder='Tamamlandı';qi.max=0;}
+  else{qi.disabled=false;qi.placeholder='max '+kalan;qi.max=kalan;}
+  // Durus - çoklu duruş desteği
   document.getElementById('durusTitle').style.display='none';
   document.getElementById('durusSection').style.display='none';
   document.getElementById('durusSection').innerHTML='';
-  document.getElementById('durusToggle').style.display='block';
+  document.getElementById('durusToggle').textContent='+ Duruş Ekle';
   document.getElementById('notInput').value='';
   checkSaveReady();
   document.getElementById('entryModal').classList.add('show');
@@ -356,42 +358,95 @@ function addOpEntry(){
 }
 function getOpEntries(){const r=[];document.querySelectorAll('.op-entry').forEach(d=>{const id=d.querySelector('.op-sel')?.value,b=d.querySelector('.op-bas')?.value||'',e=d.querySelector('.op-bit')?.value||'';if(id)r.push({id,baslangic:b,bitis:e});});return r;}
 
-// DURUS (#4,#8)
-function toggleDurus(){
-  _durusVisible=!_durusVisible;
-  document.getElementById('durusTitle').style.display=_durusVisible?'block':'none';
-  document.getElementById('durusSection').style.display=_durusVisible?'block':'none';
-  document.getElementById('durusToggle').textContent=_durusVisible?'− Duruş Kaldır':'+ Duruş Ekle';
-  if(_durusVisible&&!document.getElementById('durusSection').innerHTML.trim()){
-    const dk=S.durusKodlari||[];
-    document.getElementById('durusSection').innerHTML=`<div class="durus-entry"><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Kodu</label><select id="dKodSel" onchange="checkSaveReady()"><option value="">Seçin...</option>${dk.map(d=>{const kod=d.kod||d.id||'';const ad=d.ad||d.aciklama||d.tanim||kod;return`<option value="${kod}">${kod}${ad&&ad!==kod?' — '+ad:''}</option>`;}).join('')}</select></div><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Saatleri</label><div class="time-row"><input type="time" id="dBas" value="${getNow()}" onchange="calcDD()"><input type="time" id="dBit" value="${getNow()}" onchange="calcDD()"></div></div><div class="inp-grp" style="margin:0"><label>Süre (dk)</label><input type="number" id="dDk" inputmode="numeric" min="0" placeholder="Otomatik"></div></div>`;
-  }
+// DURUS — çoklu, düzenlenebilir (#2,#3,#4)
+function addDurus(){
+  const sec=document.getElementById('durusSection');
+  sec.style.display='block';
+  document.getElementById('durusTitle').style.display='block';
+  const idx=sec.querySelectorAll('.durus-entry').length;
+  const dk=S.durusKodlari||[];
+  const div=document.createElement('div');
+  div.className='durus-entry';
+  div.style.marginBottom='8px';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--warn);font-family:'JetBrains Mono',monospace">DURUŞ #${idx+1}</span>
+      <button class="remove-op" onclick="this.closest('.durus-entry').remove();checkSaveReady()">✕</button>
+    </div>
+    <div class="inp-grp" style="margin:0 0 6px">
+      <label>Duruş Kodu</label>
+      <select class="d-kod" onchange="checkSaveReady()">
+        <option value="">Seçin...</option>
+        ${dk.map(d=>{const kod=d.kod||d.id||'';const ad=d.ad||d.aciklama||d.tanim||kod;return'<option value="'+kod+'">'+kod+(ad&&ad!==kod?' — '+ad:'')+'</option>';}).join('')}
+      </select>
+    </div>
+    <div class="inp-grp" style="margin:0 0 6px">
+      <label>Duruş Saatleri</label>
+      <div class="time-row">
+        <input type="time" class="d-bas" value="${getNow()}" onchange="calcDurusAuto(this)">
+        <input type="time" class="d-bit" value="${getNow()}" onchange="calcDurusAuto(this)">
+      </div>
+    </div>
+    <div class="inp-grp" style="margin:0">
+      <label>Süre (dk)</label>
+      <input type="number" class="d-dk" inputmode="numeric" min="0" placeholder="Otomatik">
+    </div>
+  `;
+  sec.appendChild(div);
   checkSaveReady();
 }
-function calcDD(){const b=document.getElementById('dBas')?.value,e=document.getElementById('dBit')?.value;if(b&&e){const[bh,bm]=b.split(':').map(Number),[eh,em]=e.split(':').map(Number);let d=(eh*60+em)-(bh*60+bm);if(d<0)d+=1440;document.getElementById('dDk').value=d;}}
+function calcDurusAuto(el){
+  const entry=el.closest('.durus-entry');
+  const b=entry.querySelector('.d-bas')?.value,e=entry.querySelector('.d-bit')?.value;
+  if(b&&e){const[bh,bm]=b.split(':').map(Number),[eh,em]=e.split(':').map(Number);let d=(eh*60+em)-(bh*60+bm);if(d<0)d+=1440;entry.querySelector('.d-dk').value=d;}
+}
+function getDurusEntries(){
+  const r=[];
+  document.querySelectorAll('.durus-entry').forEach(d=>{
+    const kod=d.querySelector('.d-kod')?.value||'';
+    const bas=d.querySelector('.d-bas')?.value||'';
+    const bit=d.querySelector('.d-bit')?.value||'';
+    const dk=parseInt(d.querySelector('.d-dk')?.value)||0;
+    if(kod)r.push({kod,baslangic:bas,bitis:bit,dk});
+  });
+  return r;
+}
 
 // SAVE READY
 function checkSaveReady(){
-  const q=parseInt(document.getElementById('qtyInput').value)||0,ops=getOpEntries(),isDone=_curWO&&getWPct(_curWO)>=100;
-  const hasD=_durusVisible&&document.getElementById('dKodSel')?.value;
-  // Fazla üretim veya sadece duruş kaydı mümkün
-  document.getElementById('saveBtn').disabled=!((q>0&&ops.length>0)||hasD);
+  const q=parseInt(document.getElementById('qtyInput').value)||0;
+  const ops=getOpEntries();
+  const isDone=_curWO&&getWPct(_curWO)>=100;
+  const duruslar=getDurusEntries();
+  // #5: Qty max kontrolü
+  if(!isDone&&q>0){
+    const kalan=Math.max(0,(_curWO?.hedef||0)-getProduced(_curWO));
+    if(q>kalan){document.getElementById('qtyInput').value=kalan;}
+  }
+  // Tamamlanmışsa sadece duruş, değilse qty+op veya duruş
+  document.getElementById('saveBtn').disabled=isDone?duruslar.length===0:!((q>0&&ops.length>0)||duruslar.length>0);
 }
 
 // SAVE
 async function saveEntry(){
   if(!_curWO)return;
   const q=parseInt(document.getElementById('qtyInput').value)||0,ops=getOpEntries(),isDone=getWPct(_curWO)>=100,nt=document.getElementById('notInput').value||'';
-  if(isDone&&q>0){if(!confirm('⚠ Hedef tamamlandı — fazla üretim kaydetmek istiyor musunuz?'))return;}
+  // #1: Tamamlanmışsa adet kabul etme
+  if(isDone&&q>0){showToast('Hedef tamamlandı — adet girilemez','warn');return;}
+  // #5: Max kontrolü
+  if(!isDone&&q>0){
+    const kalan=Math.max(0,(_curWO.hedef||0)-getProduced(_curWO));
+    if(q>kalan){showToast('Maksimum '+kalan+' adet girilebilir','warn');return;}
+  }
   if(q>0){const sc=checkStok(_curWO);if(!sc.ok){if(!confirm('⚠ Stok yetersiz! Devam?'))return;}}
   const now=new Date(),tarih=now.toISOString().slice(0,10),saat=now.toTimeString().slice(0,5);
-  let dK='',dDk=0,dB='',dBi='';
-  if(_durusVisible){dK=document.getElementById('dKodSel')?.value||'';dDk=parseInt(document.getElementById('dDk')?.value)||0;dB=document.getElementById('dBas')?.value||'';dBi=document.getElementById('dBit')?.value||'';}
+  // Çoklu duruş
+  const duruslar=getDurusEntries();
   let cnt=parseInt(localStorage.getItem('_uys_uid_cnt')||'0')+1;
   localStorage.setItem('_uys_uid_cnt',String(cnt));
   const id='mob'+Date.now().toString(36)+cnt.toString(36);
   if(!S.logs)S.logs=[];
-  S.logs.push({id,woId:_curWO.id,tarih,saat,qty:q,operatorId:ops.length===1?ops[0].id:null,operators:ops,vardiya:'',durusKod:dK,durusDk:dDk,durusBaslangic:dB,durusBitis:dBi,not:nt||'Mobil giriş'});
+  S.logs.push({id,woId:_curWO.id,tarih,saat,qty:q,operatorId:ops.length===1?ops[0].id:null,operators:ops,vardiya:'',duruslar:duruslar,durusKod:duruslar.length>0?duruslar[0].kod:'',durusDk:duruslar.reduce((s,d)=>s+d.dk,0),not:nt||'Mobil giriş'});
   closeModal();await saveData();render();
 }
 
