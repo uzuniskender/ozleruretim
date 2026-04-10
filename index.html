@@ -4229,14 +4229,17 @@ function rWO(){
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="wof-tip-chk" value="siparis" checked onchange="woTipChk()"> Siparişten Açılan</label>
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="wof-tip-chk" value="ym" checked onchange="woTipChk()"> Manuel YM</label>
  </div>
- <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;flex-wrap:wrap">
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-weight:600"><input type="checkbox" id="wof-s-all" checked onchange="woDurumAll(this)"> Tümü</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="active" checked onchange="woDurumChk()"> Üretimde</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="partial" checked onchange="woDurumChk()"> Devam</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="none" checked onchange="woDurumChk()"> Başlamadı</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="bekleyen" checked onchange="woDurumChk()"> Beklemede</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="done" checked onchange="woDurumChk()"> Tamamlandı</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="iptal" checked onchange="woDurumChk()"> İptal</label>
+ <div style="position:relative;display:inline-block">
+  <button class="btn bs btn-sm" onclick="var d=this.nextElementSibling;d.style.display=d.style.display==='block'?'none':'block'" style="font-size:11px">Durum Filtresi ▾</button>
+  <div style="display:none;position:absolute;top:100%;left:0;z-index:999;background:var(--bg1);border:1px solid var(--border2);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.2);padding:8px 10px;min-width:160px;margin-top:4px" class="wo-durum-drop">
+   <label style="display:flex;align-items:center;gap:5px;padding:4px 0;cursor:pointer;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px"><input type="checkbox" id="wof-s-all" checked onchange="woDurumAll(this)"> Tümü</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="active" checked onchange="woDurumChk()"> Üretimde</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="partial" checked onchange="woDurumChk()"> Devam</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="none" checked onchange="woDurumChk()"> Başlamadı</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="bekleyen" checked onchange="woDurumChk()"> Beklemede</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="done" checked onchange="woDurumChk()"> Tamamlandı</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="wof-s-chk" value="iptal" checked onchange="woDurumChk()"> İptal</label>
+  </div>
  </div>
  </div></div>
  <div id="wo-rows"></div>
@@ -4259,13 +4262,16 @@ function rOrders(){
  <option value="tarih">Tarihe Göre</option>
  <option value="termin">Terminine Göre</option>
  </select>
- <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;flex-wrap:wrap">
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-weight:600"><input type="checkbox" id="ord-s-all" checked onchange="ordDurumAll(this)"> Tümü</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="active" checked onchange="ordDurumChk()"> Üretimde</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="bekleyen" checked onchange="ordDurumChk()"> Beklemede</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="done" checked onchange="ordDurumChk()"> Tamamlandı</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="late" checked onchange="ordDurumChk()"> ⚠ Gecikmeli</label>
-  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="ord-s-chk" value="iptal" checked onchange="ordDurumChk()"> İptal</label>
+ <div style="position:relative;display:inline-block">
+  <button class="btn bs btn-sm" onclick="var d=this.nextElementSibling;d.style.display=d.style.display==='block'?'none':'block'" style="font-size:11px">Durum Filtresi ▾</button>
+  <div style="display:none;position:absolute;top:100%;left:0;z-index:999;background:var(--bg1);border:1px solid var(--border2);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.2);padding:8px 10px;min-width:160px;margin-top:4px" class="ord-durum-drop">
+   <label style="display:flex;align-items:center;gap:5px;padding:4px 0;cursor:pointer;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px"><input type="checkbox" id="ord-s-all" checked onchange="ordDurumAll(this)"> Tümü</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="ord-s-chk" value="active" checked onchange="ordDurumChk()"> Üretimde</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="ord-s-chk" value="bekleyen" checked onchange="ordDurumChk()"> Beklemede</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="ord-s-chk" value="done" checked onchange="ordDurumChk()"> Tamamlandı</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="ord-s-chk" value="late" checked onchange="ordDurumChk()"> ⚠ Gecikmeli</label>
+   <label style="display:flex;align-items:center;gap:5px;padding:3px 0;cursor:pointer;font-size:12px"><input type="checkbox" class="ord-s-chk" value="iptal" checked onchange="ordDurumChk()"> İptal</label>
+  </div>
  </div>
  </div></div></div>
  ${selToolbar('ord',{deleteLabel:'Seçilenleri Sil',exportLabel:'Excel Aktar'})}
@@ -15111,6 +15117,12 @@ loadS().then(()=>{
 } // end startApp
 // Enter key for auth login
 document.getElementById('authPass')?.addEventListener('keydown',function(e){if(e.key==='Enter')authLogin();});
+// Dropdown dışına tıklayınca kapat
+document.addEventListener('click',function(e){
+ if(!e.target.closest('.wo-durum-drop')&&!e.target.closest('.ord-durum-drop')&&!e.target.matches('[onclick*="nextElementSibling"]')){
+  document.querySelectorAll('.wo-durum-drop,.ord-durum-drop').forEach(function(d){d.style.display='none';});
+ }
+});
 checkAuth();
 </script>
 </body>
