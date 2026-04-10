@@ -14804,8 +14804,13 @@ function showLoginScreen(){
   // Operatör girişi
   +'<div style="border:1px solid var(--border);border-radius:8px;padding:16px">'
   +'<div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px">OPERATÖR GİRİŞİ</div>'
-  +'<input id="login-opr-ara" placeholder="Adınızı yazın..." oninput="loginOprAra()" style="width:100%;margin-bottom:6px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--fg)">'
-  +'<div id="login-opr-sonuc" style="max-height:140px;overflow-y:auto;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;display:none"></div>'
+  +'<select id="login-opr-bolum" onchange="loginOprBolumDegisti()" style="width:100%;margin-bottom:6px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--fg);font-size:12px">'
+  +'<option value="">— Bölüm seçin —</option>'
+  +(function(){var bolumler=[...new Set((S.operators||[]).filter(function(o){return o.aktif!==false&&o.bolum;}).map(function(o){return o.bolum;}))].sort(function(a,b){return a.localeCompare(b,'tr');});return bolumler.map(function(b){return '<option value="'+esc(b)+'">'+esc(b)+'</option>';}).join('');})()
+  +'</select>'
+  +'<select id="login-opr-liste" onchange="loginOprListeSec()" style="width:100%;margin-bottom:6px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--fg);font-size:12px;display:none">'
+  +'<option value="">— Operatör seçin —</option>'
+  +'</select>'
   +'<input id="login-opr-id" type="hidden" value="">'
   +'<input id="login-opr-sifre" type="password" placeholder="Şifre" disabled style="width:100%;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--fg)">'
   +'<button class="btn" style="width:100%;background:var(--green);color:#fff;border:none;padding:9px;border-radius:6px;cursor:pointer;font-weight:600" onclick="loginOperator()">Giriş</button>'
@@ -14836,36 +14841,32 @@ function loginAdmin(){
  updateBadges();nav('dashboard');
 }
 
-function loginOprAra(){
- var q=(document.getElementById('login-opr-ara')?.value||'').trim().toUpperCase();
- var sonucDiv=document.getElementById('login-opr-sonuc');
+function loginOprBolumDegisti(){
+ var bolum=document.getElementById('login-opr-bolum')?.value||'';
+ var listeSel=document.getElementById('login-opr-liste');
  var sifreInp=document.getElementById('login-opr-sifre');
  var idInp=document.getElementById('login-opr-id');
- if(!q){sonucDiv.style.display='none';idInp.value='';if(sifreInp)sifreInp.disabled=true;return;}
- var eslesme=(S.operators||[]).filter(function(o){
-  return o.aktif!==false&&(o.ad||'').toUpperCase().includes(q);
- });
- if(!eslesme.length){
-  sonucDiv.innerHTML='<div style="padding:8px;font-size:12px;color:var(--t2)">Bulunamadı</div>';
-  sonucDiv.style.display='block';
-  idInp.value='';if(sifreInp)sifreInp.disabled=true;
-  return;
- }
- sonucDiv.innerHTML=eslesme.map(function(o){
-  return '<div style="padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"'
-   +' data-oid="'+o.id+'" data-oad="'+esc(o.ad)+'" data-obol="'+esc(o.bolum||'')+'"'
-   +' onclick="loginOprSec(this)">'+esc(o.ad)
-   +'<span style="font-size:10px;color:var(--t2);margin-left:6px">'+esc(o.bolum||'')+'</span></div>';
- }).join('');
- sonucDiv.style.display='block';
+ if(!bolum){listeSel.style.display='none';idInp.value='';if(sifreInp)sifreInp.disabled=true;return;}
+ var operatorler=(S.operators||[]).filter(function(o){
+  return o.aktif!==false&&(o.bolum||'')===bolum;
+ }).sort(function(a,b){return (a.ad||'').localeCompare(b.ad||'','tr');});
+ listeSel.innerHTML='<option value="">— Operatör seçin ('+operatorler.length+') —</option>'
+  +operatorler.map(function(o){
+   return '<option value="'+o.id+'">'+esc(o.ad)+'</option>';
+  }).join('');
+ listeSel.style.display='block';
+ idInp.value='';if(sifreInp)sifreInp.disabled=true;
 }
-function loginOprSec(el){
- var id=el.dataset.oid, ad=el.dataset.oad, bolum=el.dataset.obol;
- document.getElementById('login-opr-ara').value=ad+(bolum?' ('+bolum+')':'');
- document.getElementById('login-opr-id').value=id;
+function loginOprListeSec(){
+ var sel=document.getElementById('login-opr-liste');
+ var idInp=document.getElementById('login-opr-id');
  var sifreInp=document.getElementById('login-opr-sifre');
- if(sifreInp){sifreInp.disabled=false;sifreInp.focus();}
- document.getElementById('login-opr-sonuc').style.display='none';
+ if(sel.value){
+  idInp.value=sel.value;
+  if(sifreInp){sifreInp.disabled=false;sifreInp.focus();}
+ } else {
+  idInp.value='';if(sifreInp)sifreInp.disabled=true;
+ }
 }
 function loginOperator(){
  var oprId=document.getElementById('login-opr-id')?.value||'';
