@@ -964,7 +964,9 @@ function rKesimPlan(){
  syncKesimPlanlar();
  var isOpr=_session&&_session.tip==='operator';
  var oprBolum=isOpr?(_session.bolum||'').toUpperCase():'';
+ var _kpTamGoster=window._kpTamGoster||false;
  var planlar=S.kesimPlanlari.filter(function(p){
+  if(!_kpTamGoster&&p.durum==='tamamlandi')return false;
   if(!isOpr)return true;
   return (p.satirlar||[]).some(function(s){
    return (s.kesimler||[]).some(function(k){
@@ -974,11 +976,12 @@ function rKesimPlan(){
    });
   });
  });
+ var _kpTamSay=S.kesimPlanlari.filter(function(p){return p.durum==="tamamlandi";}).length;
  var ph='<div class="ph"><div><h1>Kesim Planları</h1><p>'+(!isOpr?'Ham malzeme kesim optimizasyonu':'Bölüm: '+esc(_session.bolum||''))+'</p></div>'
-  +(!isOpr?'<div style="display:flex;gap:8px"><button class="btn bp" onclick="kesimPlanOlustur()">⚙ Plan Oluştur</button></div>':'')
+  +(!isOpr?'<div style="display:flex;gap:8px;align-items:center">'+(_kpTamSay?'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;color:var(--t2)"><input type="checkbox" '+(_kpTamGoster?"checked":"")+' onchange="window._kpTamGoster=this.checked;rKesimPlan()"> Tamamlananları göster ('+_kpTamSay+')</label>':'')+'<button class="btn bp" onclick="kesimPlanOlustur()">⚙ Plan Oluştur</button></div>':'')
   +'</div>';
  if(!planlar.length){
-  el.innerHTML=ph+'<div class="empty"><p>'+(isOpr?'Bölümünüze ait kesim planı yok.':'Henüz kesim planı yok.')+'</p></div>';
+  el.innerHTML=ph+'<div class="empty"><p>'+(isOpr?'Bölümünüze ait kesim planı yok.':(_kpTamSay&&!_kpTamGoster?'Tüm planlar tamamlandı. Görmek için "Tamamlananları göster" seçeneğini açın.':'Henüz kesim planı yok.'))+'</p></div>';
   return;
  }
  var rows=planlar.map(function(p){
@@ -4811,7 +4814,7 @@ function renderWORows(){
  else if(fs==='iptal')wos=wos.filter(w=>w.durum==='iptal');
  else if(fs==='bekleyen')wos=wos.filter(w=>w.durum==='beklemede');
  wos.sort((a,b)=>{const oa=getOrd(a.orderId),ob=getOrd(b.orderId);return(oa?.tarih||'').localeCompare(ob?.tarih||'')||a.sira-b.sira;});
- if(!wos.length){document.getElementById('wo-rows').innerHTML=`<div class="empty"><p>Sonuç yok</p></div>`;return;}
+ if(!wos.length){document.getElementById('wo-rows').innerHTML=`<div class="empty"><p>Sonuç yok</p></div>`;refreshSel('wo');return;}
  const makeRow=w=>{
  const pr=wProd(w.id);const p=wPct(w);const o=getOrd(w.orderId);
  const hmTag=w.hm?.map(h=>`<span class="bx bx-hm" style="font-size:9px;margin-right:2px">${esc(h.malad.slice(0,26))}</span>`).join('')||'';
@@ -4874,6 +4877,7 @@ function renderWORows(){
     +'</tbody></table></div></div>';
   });
   document.getElementById('wo-rows').innerHTML=html;
+  refreshSel('wo');
   return;
  }
  if(fg==='mamul'){
@@ -4912,6 +4916,7 @@ function renderWORows(){
  });
  html+='</tbody></table></div>';
  document.getElementById('wo-rows').innerHTML=html;
+ refreshSel('wo');
 
  } else {
  const grouped={};
@@ -4934,6 +4939,7 @@ function renderWORows(){
    +'</div></div>';
  });
  document.getElementById('wo-rows').innerHTML=html;
+ refreshSel('wo');
  }
 }
 function showWODetail(wid){
@@ -5596,13 +5602,16 @@ function renderStokHareketler(){
 function showStokGirisModal(malkod){
  window._sgMalkod=malkod||'';
  window._sgSatirlar=[];
- var malzOpts=(S.malzemeler||[]).sort(function(a,b){return (a.ad||'').localeCompare(b.ad||'','tr');})
-  .map(function(m){return '<option value="'+m.kod+'">'+esc(m.kod)+' · '+esc(m.ad)+'</option>';}).join('');
+ window._sgMalzList=(S.malzemeler||[]).sort(function(a,b){return (a.ad||'').localeCompare(b.ad||'','tr');});
+ var initMal=malkod?(S.malzemeler||[]).find(function(m){return m.kod===malkod;}):null;
  showModal('<div class="md md-md">'
   +'<div class="mt">Stok Girişi</div>'
   +'<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px">'
-  +'<div style="flex:2;min-width:200px"><label class="lbl">Malzeme *</label>'
-  +'<select id="sg-mal-sel" style="width:100%;font-size:12px"><option value="">— Malzeme seç —</option>'+malzOpts+'</select></div>'
+  +'<div style="flex:2;min-width:200px;position:relative"><label class="lbl">Malzeme *</label>'
+  +'<input type="hidden" id="sg-mal-sel" value="'+(malkod||'')+'">'
+  +'<input type="text" id="sg-mal-ara" autocomplete="off" placeholder="Malzeme kodu veya adı yazın..." value="'+(initMal?esc(initMal.kod)+' · '+esc(initMal.ad):'')+'" oninput="sgMalAra()" onfocus="sgMalAra()" style="width:100%;font-size:12px">'
+  +'<div id="sg-mal-drop" style="position:absolute;z-index:9999;width:100%;max-height:200px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none"></div>'
+  +'</div>'
   +'<div style="width:90px"><label class="lbl">Miktar *</label><input type="number" id="sg-mik" min="0.01" step="0.01" value="" placeholder="Adet" style="width:90px"></div>'
   +'<div><label class="lbl">Tarih</label><input type="date" id="sg-tar" value="'+today()+'" style="width:110px"></div>'
   +'<button class="btn bcy btn-sm" style="margin-bottom:2px" onclick="sgEkle()">+ Ekle</button>'
@@ -5615,12 +5624,33 @@ function showStokGirisModal(malkod){
   +'</div></div>');
  if(malkod){
   setTimeout(function(){
-   var sel=document.getElementById('sg-mal-sel');
-   if(sel)sel.value=malkod;
    document.getElementById('sg-mik')?.focus();
   },80);
  }
+ // Click dışında dropdown kapat
+ setTimeout(function(){document.addEventListener('click',function _sgClose(e){if(!e.target.closest('#sg-mal-ara')&&!e.target.closest('#sg-mal-drop')){var d=document.getElementById('sg-mal-drop');if(d)d.style.display='none';document.removeEventListener('click',_sgClose);}});},200);
  sgRenderSatirlar();
+}
+function sgMalAra(){
+ var inp=document.getElementById('sg-mal-ara');
+ var drop=document.getElementById('sg-mal-drop');
+ if(!inp||!drop)return;
+ var q=inp.value.toLowerCase();
+ var list=(window._sgMalzList||[]).filter(function(m){
+  return (m.kod||'').toLowerCase().includes(q)||(m.ad||'').toLowerCase().includes(q);
+ }).slice(0,30);
+ if(!list.length){drop.innerHTML='<div style="padding:8px 10px;font-size:11px;color:var(--t2)">Sonuç yok</div>';drop.style.display='block';return;}
+ drop.innerHTML=list.map(function(m){
+  return '<div style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)" onmousedown="sgMalSec(\''+esc(m.kod)+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'"><span style="font-family:var(--mono);font-size:10px;color:var(--ac)">'+esc(m.kod)+'</span> · '+esc(m.ad)+'</div>';
+ }).join('');
+ drop.style.display='block';
+}
+function sgMalSec(kod){
+ var m=(window._sgMalzList||[]).find(function(x){return x.kod===kod;});
+ document.getElementById('sg-mal-sel').value=kod;
+ document.getElementById('sg-mal-ara').value=m?(m.kod+' · '+m.ad):kod;
+ document.getElementById('sg-mal-drop').style.display='none';
+ document.getElementById('sg-mik')?.focus();
 }
 function sgRenderSatirlar(){
  var wrap=document.getElementById('sg-satirlar-wrap');if(!wrap)return;
@@ -8510,9 +8540,23 @@ function rRepOprSaat(){
  +oprList.map(function(opr){
  var pct=Math.round(opr.toplamDk/600*100);
  var barColor=pct>100?'var(--amber)':'var(--ac)';
- var detay=opr.girisler.map(function(g){
- return '<span style="font-size:9px;font-family:var(--mono);color:var(--t2);display:inline-block;margin:1px 3px 1px 0">'+esc(g.ieNo)+(g.bas?' '+g.bas+'→'+g.bit:'')+(g.sure?' ('+g.sure+'dk)':'')+'</span>';
- }).join('');
+ var detay=opr.girisler.length<=3
+ ?opr.girisler.map(function(g){
+  return '<div style="display:flex;gap:6px;align-items:center;font-size:10px;font-family:var(--mono);color:var(--t2);padding:1px 0">'
+  +'<span style="color:var(--ac);min-width:70px">'+esc(g.ieNo||'—')+'</span>'
+  +(g.bas?'<span>'+g.bas+'→'+(g.bit||'?')+'</span>':'')
+  +(g.sure?'<span style="color:var(--t1);font-weight:500">'+g.sure+'dk</span>':'')
+  +'</div>';
+ }).join('')
+ :'<div style="font-size:10px;font-family:var(--mono);color:var(--t2)">'+opr.girisler.length+' giriş</div>'
+  +opr.girisler.slice(0,2).map(function(g){
+   return '<div style="display:flex;gap:6px;align-items:center;font-size:10px;font-family:var(--mono);color:var(--t2);padding:1px 0">'
+   +'<span style="color:var(--ac);min-width:70px">'+esc(g.ieNo||'—')+'</span>'
+   +(g.bas?'<span>'+g.bas+'→'+(g.bit||'?')+'</span>':'')
+   +(g.sure?'<span style="color:var(--t1);font-weight:500">'+g.sure+'dk</span>':'')
+   +'</div>';
+  }).join('')
+  +'<div style="font-size:9px;color:var(--t3)">+'+(opr.girisler.length-2)+' daha</div>';
  var bar='<div style="height:4px;border-radius:2px;background:var(--bg3);width:100%;margin-top:4px">'
  +'<div style="height:4px;border-radius:2px;background:'+barColor+';width:'+Math.min(pct,150)+'%"></div></div>';
  return '<tr>'
