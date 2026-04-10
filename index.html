@@ -13810,6 +13810,7 @@ async function runSistemTest(){
  // ─────────────────────────────────────────
  // Önceki test verilerini temizle
  var _temizlenenSay=await _sistemTestTemizle();
+ window._suppressSave=true; // Tüm test boyunca kayıt bastır, sonunda tek save
  tLog('Önceki test verisi temizlendi: '+_temizlenenSay+' sipariş silindi');
  tLog('=== BAŞLANGIÇ VERİ KONTROLLERİ ===');
  var rc120=(S.recipes||[]).find(function(r){return r.mamulKod==='200909005';});
@@ -13856,7 +13857,6 @@ async function runSistemTest(){
  var sipWoOncesi=(S.workOrders||[]).length;
  var sipSayiOncesi=(S.orders||[]).length;
 
- window._suppressSave=true; // Toplu kayıt: arada saveS atla
  for(var si=0;si<testSiparisler.length;si++){
   var sp=testSiparisler[si];
   var sno=_testPrefix+'-'+String(si+1).padStart(2,'0');
@@ -13869,8 +13869,6 @@ async function runSistemTest(){
    adet:sp.adet,receteId:sp.rc.id,olusturma:today(),mrpDurum:'bekliyor'});
   await _buildWOs(oid,sno,urunler,{});
  }
- window._suppressSave=false;
- await saveS();
 
  var sipWoSonrasi=(S.workOrders||[]).length;
  var sipSayiSonrasi=(S.orders||[]).length;
@@ -14095,9 +14093,16 @@ async function runSistemTest(){
  }
 
  var _logEklendi=0;
+ // ── PRE-COMPUTE: lookup map'ler (O(n) yerine O(1) erişim) ──
+ var _opMapT={};(S.operations||[]).forEach(function(o){_opMapT[o.id]=o;});
+ var _woKesimMap={};
+ (S.kesimPlanlari||[]).forEach(function(p){(p.satirlar||[]).forEach(function(s){s.kesimler.forEach(function(k){_woKesimMap[k.woId]=(_woKesimMap[k.woId]||0)+(k.adet||0);});});});
+ var _woLogMap={};
+ (S.logs||[]).forEach(function(l){_woLogMap[l.woId]=(_woLogMap[l.woId]||0)+(l.qty||0);});
+
  for(var wi=0;wi<_tumUretimWOs.length;wi++){
   var w=_tumUretimWOs[wi];
-  var _wOp=(S.operations||[]).find(function(o){return o.id===w.opId;});
+  var _wOp=_opMapT[w.opId];
   var _opBolum=_wOp?(_wOp.bolum||''):'';
   var _opAd=_wOp?(_wOp.ad||w.opAd||''):(w.opAd||'');
 
@@ -14108,15 +14113,10 @@ async function runSistemTest(){
   // Kesim planından adet al
   var _isKesim=['KESİM','KESME','LAZER','TESTERE','ROUTER','PLAZMA'].some(function(k){return _opAd.toUpperCase().includes(k);});
   var _planAdet=0;
-  if(_isKesim)(S.kesimPlanlari||[]).forEach(function(p){(p.satirlar||[]).forEach(function(s){s.kesimler.forEach(function(k){if(k.woId===w.id)_planAdet+=k.adet||0;});});});
-  // Üretim miktarı: log'a sadece w.hedef yaz (fire fazlası ayrı stok)
-  var _uretilen=(function(){var t=0;(S.logs||[]).filter(function(l){return l.woId===w.id;}).forEach(function(l){t+=l.qty||0;});return t;})();
+  if(_isKesim)_planAdet=_woKesimMap[w.id]||0;
+  var _uretilen=_woLogMap[w.id]||0;
   var _planAdetFire=0;
-  if(_isKesim)(S.kesimPlanlari||[]).forEach(function(p){
-   (p.satirlar||[]).forEach(function(s){
-    s.kesimler.forEach(function(k){if(k.woId===w.id)_planAdetFire+=k.adet||0;});
-   });
-  });
+  if(_isKesim)_planAdetFire=_woKesimMap[w.id]||0;
   // WO hedefi: kesimde planAdet az ise en az hedef kadar üret
   // Ama log'a sadece w.hedef yazılır — fire fazlası fireQty olarak ayrılır
   var _gercekUretim=_isKesim&&_planAdetFire>0?Math.max(_planAdetFire,w.hedef):w.hedef;
@@ -14347,6 +14347,7 @@ async function runSistemTest(){
  tLog('\n=== TEST TAMAMLANDI: '+T.pass+' geçti / '+T.fail+' başarısız / '+T.warn+' uyarı ===');
  window._sistemTestAktif=false;
  window._suppressSave=false;
+ await saveS(); // Tüm test verisi tek seferde kaydedilir
 
  // Test verisini temizle
  T.testData.testSiparis=_oids.length;
