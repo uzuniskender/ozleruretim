@@ -236,7 +236,22 @@ function doLogin(){
   render();updateActiveBar();
 }
 function doLogout(){_curUser=null;localStorage.removeItem('_uys_op_login');document.getElementById('loginScreen').style.display='flex';document.getElementById('mainApp').style.display='none';}
-function autoLogin(){const id=localStorage.getItem('_uys_op_login');if(id){const op=(S.operators||[]).find(o=>o.id===id);if(op){_curUser=op;document.getElementById('loginScreen').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('curUserName').textContent=op.ad;document.getElementById('curUserBolum').textContent=op.bolum||'—';}}}
+function autoLogin(){
+  const id=localStorage.getItem('_uys_op_login');
+  if(id){
+    const op=(S.operators||[]).find(o=>o.id===id);
+    if(op){
+      _curUser=op;
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('mainApp').style.display='block';
+      document.getElementById('curUserName').textContent=op.ad;
+      document.getElementById('curUserBolum').textContent=op.bolum||'—';
+      populateFilters(); // bölüm filtresi _curUser'a göre set edilsin
+      render();
+      updateActiveBar();
+    }
+  }
+}
 
 // === #10: ACTIVE WORK — çoklu iş desteği ===
 function startWork(wid){
@@ -509,7 +524,7 @@ function addOpEntry(){
   const sorted=(S.operators||[]).filter(o=>o.aktif!==false).sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
   d.innerHTML=`<div class="block-hdr"><span style="color:var(--acc)">OPERATÖR #${idx+1}</span>${idx>0?'<button class="remove-btn" onclick="this.closest(\'.entry-block\').remove();checkSaveReady()">✕</button>':''}</div>
   <div class="inp-grp" style="margin:0 0 4px"><select class="op-sel" onchange="checkSaveReady()"><option value="">Seç...</option>${sorted.map(o=>`<option value="${o.id}">${o.ad}${o.sicil?' ('+o.sicil+')':''}</option>`).join('')}</select></div>
-  <div class="intervals"><div class="interval-row"><input type="time" class="iv-bas" value="${getNow()}" placeholder="Baş"><span style="color:var(--t3)">→</span><input type="time" class="iv-bit" value="${getNow()}" placeholder="Bit"><button class="remove-btn" style="visibility:hidden">✕</button></div></div>
+  <div class="intervals"><div class="interval-row"><input type="time" class="iv-bas" value="${getNow()}" onchange="checkSaveReady()" placeholder="Baş"><span style="color:var(--t3)">→</span><input type="time" class="iv-bit" value="${getNow()}" onchange="checkSaveReady()" placeholder="Bit"><button class="remove-btn" style="visibility:hidden">✕</button></div></div>
   <div class="add-btn" onclick="addInterval(this)" style="font-size:9px;padding:4px;margin-top:2px">+ Aralık Ekle</div>`;
   c.appendChild(d);
   if(idx===0&&_curUser)d.querySelector('.op-sel').value=_curUser.id;
@@ -517,7 +532,7 @@ function addOpEntry(){
 function addInterval(btn){
   const block=btn.closest('.entry-block'),container=block.querySelector('.intervals');
   const row=document.createElement('div');row.className='interval-row';
-  row.innerHTML=`<input type="time" class="iv-bas" value="${getNow()}"><span style="color:var(--t3)">→</span><input type="time" class="iv-bit" value="${getNow()}"><button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
+  row.innerHTML=`<input type="time" class="iv-bas" value="${getNow()}" onchange="checkSaveReady()"><span style="color:var(--t3)">→</span><input type="time" class="iv-bit" value="${getNow()}" onchange="checkSaveReady()"><button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
   container.appendChild(row);
 }
 function getOpEntries(){
@@ -541,7 +556,7 @@ function addDurus(){
   const d=document.createElement('div');d.className='entry-block';d.style.borderLeft='2px solid var(--warn)';
   d.innerHTML=`<div class="block-hdr"><span style="color:var(--warn)">DURUŞ #${idx+1}</span><button class="remove-btn" onclick="this.closest('.entry-block').remove();checkSaveReady()">✕</button></div>
   <div class="inp-grp" style="margin:0 0 4px"><select class="d-kod" onchange="checkSaveReady()"><option value="">Kod seç...</option>${dk.map(d=>{const kod=d.kod||d.id||'';const ad=d.ad||d.aciklama||d.tanim||kod;return`<option value="${kod}">${kod}${ad&&ad!==kod?' — '+ad:''}</option>`;}).join('')}</select></div>
-  <div class="inp-grp" style="margin:0 0 4px"><label>Saatler</label><div class="time-row"><input type="time" class="d-bas" value="${getNow()}" onchange="calcDurusAuto(this)"><input type="time" class="d-bit" value="${getNow()}" onchange="calcDurusAuto(this)"></div></div>
+  <div class="inp-grp" style="margin:0 0 4px"><label>Saatler</label><div class="time-row"><input type="time" class="d-bas" value="${getNow()}" onchange="calcDurusAuto(this);checkSaveReady()"><input type="time" class="d-bit" value="${getNow()}" onchange="calcDurusAuto(this);checkSaveReady()"></div></div>
   <div class="inp-grp" style="margin:0"><label>Süre (dk)</label><input type="number" class="d-dk" inputmode="numeric" min="0" placeholder="Otomatik"></div>`;
   c.appendChild(d);checkSaveReady();
 }
@@ -559,8 +574,48 @@ function getDurusEntries(){
 // === FIRE (#8) ===
 function toggleFire(){_fireVisible=!_fireVisible;document.getElementById('fireSection').style.display=_fireVisible?'block':'none';document.getElementById('fireToggle').textContent=_fireVisible?'− Fire Kaldır':'+ Fire/Hurda Ekle';}
 
-// === SAVE READY ===
+// #4,#5: Zaman sınırları
+function getFirstOpTimes(){
+  const first=document.querySelector('#opEntries .entry-block');
+  if(!first)return null;
+  const intervals=first.querySelectorAll('.interval-row');
+  let minBas='23:59',maxBit='00:00';
+  intervals.forEach(row=>{
+    const b=row.querySelector('.iv-bas')?.value||'';
+    const e=row.querySelector('.iv-bit')?.value||'';
+    if(b&&b<minBas)minBas=b;
+    if(e&&e>maxBit)maxBit=e;
+  });
+  return{bas:minBas,bit:maxBit};
+}
+function validateEntryTimes(){
+  const blocks=document.querySelectorAll('#opEntries .entry-block');
+  if(blocks.length<2)return true; // tek operatör — sınır yok
+  const ft=getFirstOpTimes();if(!ft)return true;
+  let valid=true;
+  // #5: İlave operatörler ilk operatörün aralığını aşamaz
+  blocks.forEach((block,idx)=>{
+    if(idx===0)return;
+    block.querySelectorAll('.interval-row').forEach(row=>{
+      const b=row.querySelector('.iv-bas'),e=row.querySelector('.iv-bit');
+      if(b&&b.value<ft.bas){b.value=ft.bas;valid=false;}
+      if(e&&e.value>ft.bit){e.value=ft.bit;valid=false;}
+    });
+  });
+  // #4: Duruş saatleri çalışma saatlerini aşamaz
+  document.querySelectorAll('#durusEntries .entry-block').forEach(d=>{
+    const db=d.querySelector('.d-bas'),de=d.querySelector('.d-bit');
+    if(db&&db.value<ft.bas){db.value=ft.bas;valid=false;}
+    if(de&&de.value>ft.bit){de.value=ft.bit;valid=false;}
+    if(db&&de)calcDurusAuto(db); // süreyi yeniden hesapla
+  });
+  if(!valid)showToast('Saatler çalışma aralığına sınırlandı','warn');
+  return true;
+}
+
+// SAVE READY
 function checkSaveReady(){
+  validateEntryTimes(); // #4,#5: saat sınırları kontrol
   const q=parseInt(document.getElementById('qtyInput').value)||0,ops=getOpEntries(),isDone=_curWO&&getWPct(_curWO)>=100;
   const duruslar=getDurusEntries();
   // Max kontrolü
@@ -580,6 +635,7 @@ async function saveEntry(){
   const fireQ=_fireVisible?parseInt(document.getElementById('fireQty').value)||0:0;
   const fireNot=_fireVisible?document.getElementById('fireNot').value||'':'';
   if(isDone&&q>0)return;
+  validateEntryTimes(); // son kontrol
   // #4: Time validation
   for(const op of ops){for(const iv of op.intervals){if(iv.nextDay){/* allowed, just note */}}}
   const now=new Date(),tarih=now.toISOString().slice(0,10),saat=now.toTimeString().slice(0,5);
