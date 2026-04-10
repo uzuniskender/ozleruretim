@@ -248,9 +248,12 @@ function render(){
 }
 function renderUretim(c){
   const wos=(S.workOrders||[]).filter(w=>{const o=(S.orders||[]).find(x=>x.id===w.orderId);return o&&(!o.durum||o.durum!=='iptal')&&getWPct(w)<100;});
-  if(!wos.length){c.innerHTML='<div class="empty"><div class="icon">✅</div><div class="msg">Tüm işler tamamlandı</div></div>';return;}
+  // #4: Operatör sadece kendi bölümünü görür
+  const myBolum=_curUser?.bolum||'';
+  const filtered=myBolum?wos.filter(w=>{const op=(S.operations||[]).find(o=>o.id===w.opId);const st=(S.stations||[]).find(s=>s.id===w.istId);return(op?.bolum===myBolum)||(st?.bolum===myBolum);}):wos;
+  if(!filtered.length){c.innerHTML='<div class="empty"><div class="icon">✅</div><div class="msg">'+(myBolum?myBolum+' bölümünde açık iş yok':'Tüm işler tamamlandı')+'</div></div>';return;}
   const byB={};
-  wos.forEach(w=>{const op=(S.operations||[]).find(o=>o.id===w.opId);const b=op?.bolum||'Diğer';if(!byB[b])byB[b]=[];byB[b].push(w);});
+  filtered.forEach(w=>{const op=(S.operations||[]).find(o=>o.id===w.opId);const b=op?.bolum||'Diğer';if(!byB[b])byB[b]=[];byB[b].push(w);});
   let h='';
   Object.keys(byB).sort().forEach(b=>{h+=`<div class="bolum-hdr">${b}</div>`;byB[b].forEach(w=>{h+=woCard(w);});});
   c.innerHTML=h;
@@ -266,7 +269,7 @@ function woCard(w){
   const pC=pct>=100?'ok':pct>=50?'prog':'warn',fC=pct>=100?'g':pct>=50?'a':pct>=25?'y':'r';
   const k=w.kirno||'',pil=k==='1'?'mm':k.startsWith('K')?'ks':'mk',pT=k==='1'?'MAMUL':k.startsWith('K')?'KESİM':'Y.MAMUL';
   const op=(S.operations||[]).find(o=>o.id===w.opId),bol=op?.bolum||'';
-  let hm='';const hl=w.hm||[];
+  let hm='';const hl=getWOHm(w);
   if(hl.length){hm='<div class="hm-list">';hl.slice(0,2).forEach(h=>{const s=getStok(h.malkod),c=s>=(h.miktar||0)?'stok-ok':'stok-yok';hm+=`<div class="hm-item"><span>${(h.malad||h.malkod||'').slice(0,25)}</span><span class="${c}">${s}</span></div>`;});if(hl.length>2)hm+=`<div style="color:var(--t3)">+${hl.length-2}</div>`;hm+='</div>';}
   return`<div class="card ${pct>=100?'done':''}" onclick="openWO('${w.id}')"><span class="pill ${pil}">${pT}</span>${bol?`<span class="bolum-tag">${bol}</span>`:''}<div class="lbl">${ord?ord.siparisNo:'—'} · İE-${w.ieNo||w.sira||''}</div><div class="val">${w.malad||w.malkod||'—'}</div><div class="sub">${prod}/${w.hedef||0}</div>${hm}<div class="pbar"><div class="fill ${fC}" style="width:${Math.min(100,pct)}%"></div></div><span class="badge ${pC}">%${Math.round(pct)}</span></div>`;
 }
@@ -287,7 +290,30 @@ function renderOzet(c){
 function getProduced(w){return(S.logs||[]).filter(l=>l.woId===w.id).reduce((s,l)=>s+(l.qty||0),0);}
 function getWPct(w){return(!w.hedef||w.hedef<=0)?0:Math.min(100,getProduced(w)/w.hedef*100);}
 function getStok(mk){return(S.stokHareketler||[]).filter(h=>h.malkod===mk).reduce((s,h)=>s+(h.miktar||0),0);}
-function checkStok(w){const hl=w.hm||[];if(!hl.length)return{ok:true,items:[]};const items=hl.map(h=>{const s=getStok(h.malkod),n=h.miktar||0,b=(S.tedarikler||[]).filter(t=>t.malkod===h.malkod&&t.durum==='acik').reduce((x,t)=>x+(t.miktar||0),0);return{malkod:h.malkod,malad:h.malad||'',needed:n,stk:s,beklenen:b,ok:s>=n};});return{ok:items.every(i=>i.ok),items};}
+function getWOHm(w){
+  // 1. w.hm varsa direkt kullan
+  if(w.hm&&w.hm.length>0)return w.hm;
+  // 2. Yoksa BOM/reçeteden bul
+  const ord=(S.orders||[]).find(o=>o.id===w.orderId);
+  if(!ord)return[];
+  const rc=(S.recipes||[]).find(r=>r.mamulKod===ord.mamulKod||r.id===ord.receteId);
+  if(rc&&rc.satirlar){
+    // Bu WO'nun malkoduna ait hammaddeleri bul
+    const sat=rc.satirlar.filter(s=>s.malkod===w.malkod);
+    if(sat.length>0)return sat.map(s=>({malkod:s.malkod,malad:s.malad,miktar:(s.miktar||0)*(ord.adet||1)}));
+    // Alternatif: reçetede HM satırlarını göster
+    const hmSatirlar=rc.satirlar.filter(s=>s.tip==='Hammadde');
+    if(hmSatirlar.length>0)return hmSatirlar.map(s=>({malkod:s.malkod,malad:s.malad,miktar:(s.miktar||0)*(ord.adet||1)}));
+  }
+  // 3. BOM'dan
+  const bt=(S.bomTrees||[]).find(b=>b.mamulKod===ord.mamulKod);
+  if(bt&&bt.rows){
+    const hmRows=bt.rows.filter(r=>r.tip==='Hammadde');
+    if(hmRows.length>0)return hmRows.map(r=>({malkod:r.malkod,malad:r.malad,miktar:(r.miktar||0)*(ord.adet||1)}));
+  }
+  return[];
+}
+function checkStok(w){const hl=getWOHm(w);if(!hl.length)return{ok:true,items:[]};const items=hl.map(h=>{const s=getStok(h.malkod),n=h.miktar||0,b=(S.tedarikler||[]).filter(t=>t.malkod===h.malkod&&t.durum==='acik').reduce((x,t)=>x+(t.miktar||0),0);return{malkod:h.malkod,malad:h.malad||'',needed:n,stk:s,beklenen:b,ok:s>=n};});return{ok:items.every(i=>i.ok),items};}
 function getNow(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 function switchTab(t){_curTab=t;document.querySelectorAll('.tab').forEach((e,i)=>{e.classList.toggle('act',['uretim','emirler','ozet'][i]===t);});render();}
 
@@ -307,7 +333,7 @@ function openWO(wid){
   document.getElementById('opEntries').innerHTML='';addOpEntry();
   // Qty (#1)
   const qi=document.getElementById('qtyInput');qi.value='';
-  if(isDone){qi.disabled=true;qi.placeholder='Tamamlandı';}else{qi.disabled=false;qi.placeholder='0';}
+  qi.disabled=false;qi.placeholder=isDone?'Fazla üretim':'0';
   // Durus
   document.getElementById('durusTitle').style.display='none';
   document.getElementById('durusSection').style.display='none';
@@ -338,7 +364,7 @@ function toggleDurus(){
   document.getElementById('durusToggle').textContent=_durusVisible?'− Duruş Kaldır':'+ Duruş Ekle';
   if(_durusVisible&&!document.getElementById('durusSection').innerHTML.trim()){
     const dk=S.durusKodlari||[];
-    document.getElementById('durusSection').innerHTML=`<div class="durus-entry"><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Kodu</label><select id="dKodSel"><option value="">Seçin...</option>${dk.map(d=>`<option value="${d.kod||d.id}">${d.kod||d.id} — ${d.ad||'—'}</option>`).join('')}</select></div><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Saatleri</label><div class="time-row"><input type="time" id="dBas" value="${getNow()}" onchange="calcDD()"><input type="time" id="dBit" value="${getNow()}" onchange="calcDD()"></div></div><div class="inp-grp" style="margin:0"><label>Süre (dk)</label><input type="number" id="dDk" inputmode="numeric" min="0" placeholder="Otomatik"></div></div>`;
+    document.getElementById('durusSection').innerHTML=`<div class="durus-entry"><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Kodu</label><select id="dKodSel" onchange="checkSaveReady()"><option value="">Seçin...</option>${dk.map(d=>{const kod=d.kod||d.id||'';const ad=d.ad||d.aciklama||d.tanim||kod;return`<option value="${kod}">${kod}${ad&&ad!==kod?' — '+ad:''}</option>`;}).join('')}</select></div><div class="inp-grp" style="margin:0 0 6px"><label>Duruş Saatleri</label><div class="time-row"><input type="time" id="dBas" value="${getNow()}" onchange="calcDD()"><input type="time" id="dBit" value="${getNow()}" onchange="calcDD()"></div></div><div class="inp-grp" style="margin:0"><label>Süre (dk)</label><input type="number" id="dDk" inputmode="numeric" min="0" placeholder="Otomatik"></div></div>`;
   }
   checkSaveReady();
 }
@@ -348,15 +374,16 @@ function calcDD(){const b=document.getElementById('dBas')?.value,e=document.getE
 function checkSaveReady(){
   const q=parseInt(document.getElementById('qtyInput').value)||0,ops=getOpEntries(),isDone=_curWO&&getWPct(_curWO)>=100;
   const hasD=_durusVisible&&document.getElementById('dKodSel')?.value;
-  document.getElementById('saveBtn').disabled=isDone?!hasD:!(q>0&&ops.length>0);
+  // Fazla üretim veya sadece duruş kaydı mümkün
+  document.getElementById('saveBtn').disabled=!((q>0&&ops.length>0)||hasD);
 }
 
 // SAVE
 async function saveEntry(){
   if(!_curWO)return;
   const q=parseInt(document.getElementById('qtyInput').value)||0,ops=getOpEntries(),isDone=getWPct(_curWO)>=100,nt=document.getElementById('notInput').value||'';
-  if(isDone&&q>0){showToast('Tamamlandı — adet eklenemez','warn');return;}
-  if(q>0&&!isDone){const sc=checkStok(_curWO);if(!sc.ok){if(!confirm('⚠ Stok yetersiz! Devam?'))return;}}
+  if(isDone&&q>0){if(!confirm('⚠ Hedef tamamlandı — fazla üretim kaydetmek istiyor musunuz?'))return;}
+  if(q>0){const sc=checkStok(_curWO);if(!sc.ok){if(!confirm('⚠ Stok yetersiz! Devam?'))return;}}
   const now=new Date(),tarih=now.toISOString().slice(0,10),saat=now.toTimeString().slice(0,5);
   let dK='',dDk=0,dB='',dBi='';
   if(_durusVisible){dK=document.getElementById('dKodSel')?.value||'';dDk=parseInt(document.getElementById('dDk')?.value)||0;dB=document.getElementById('dBas')?.value||'';dBi=document.getElementById('dBit')?.value||'';}
