@@ -4229,10 +4229,15 @@ function rWO(){
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="wof-tip-chk" value="siparis" checked onchange="woTipChk()"> Siparişten Açılan</label>
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="wof-tip-chk" value="ym" checked onchange="woTipChk()"> Manuel YM</label>
  </div>
- <select id="wof-s" onchange="renderWORows()"><option value="">Tüm Durumlar</option><option value="done">Tamamlandı</option>
- <option value="active">Üretimde</option>
- <option value="bekleyen">Beklemede</option>
- <option value="iptal">İptal</option><option value="partial">Devam</option><option value="none">Başlamadı</option></select>
+ <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;flex-wrap:wrap">
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-weight:600"><input type="checkbox" id="wof-s-all" checked onchange="woDurumAll(this)"> Tümü</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="active" checked onchange="woDurumChk()"> Üretimde</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="partial" checked onchange="woDurumChk()"> Devam</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="none" checked onchange="woDurumChk()"> Başlamadı</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="bekleyen" checked onchange="woDurumChk()"> Beklemede</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="done" checked onchange="woDurumChk()"> Tamamlandı</label>
+  <label style="display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" class="wof-s-chk" value="iptal" checked onchange="woDurumChk()"> İptal</label>
+ </div>
  </div></div>
  <div id="wo-rows"></div>
  </div>`;
@@ -4968,7 +4973,9 @@ async function saveOrderEdit(oid){
 
 function renderWORows(){
  const q=(document.getElementById('wof-q')?.value||'').toLowerCase();
- const fs=document.getElementById('wof-s')?.value||'';
+ var _woChks=document.querySelectorAll('.wof-s-chk:checked');
+ var _woDurum=new Set();_woChks.forEach(function(c){_woDurum.add(c.value);});
+ var _woHepsi=_woDurum.size===document.querySelectorAll('.wof-s-chk').length;
  const fg=document.getElementById('wo-grp-f')?.value||'mamul';
  var _grpBtns=document.getElementById('wo-grp-btns');if(_grpBtns)_grpBtns.style.display=(fg==='operasyon'||fg==='siparis')?'inline':'none';
  // Tip filtresi - çoklu seçim
@@ -4984,12 +4991,24 @@ function renderWORows(){
    return false;
   });
  }
- if(fs==='done')wos=wos.filter(w=>w.durum==='tamamlandi'||wPct(w)>=100);
- else if(fs==='active')wos=wos.filter(w=>wPct(w)>0&&wPct(w)<100&&w.durum!=='iptal'&&w.durum!=='beklemede');
- else if(fs==='partial')wos=wos.filter(w=>wPct(w)>0&&wPct(w)<100&&w.durum!=='iptal');
- else if(fs==='none')wos=wos.filter(w=>wPct(w)===0&&w.durum!=='iptal');
- else if(fs==='iptal')wos=wos.filter(w=>w.durum==='iptal');
- else if(fs==='bekleyen')wos=wos.filter(w=>w.durum==='beklemede');
+ if(!_woHepsi){
+  wos=wos.filter(function(w){
+   var p=wPct(w);
+   var isDone=w.durum==='tamamlandi'||p>=100;
+   var isActive=p>0&&p<100&&w.durum!=='iptal'&&w.durum!=='beklemede';
+   var isPartial=p>0&&p<100&&w.durum!=='iptal';
+   var isNone=p===0&&w.durum!=='iptal'&&w.durum!=='beklemede';
+   var isIptal=w.durum==='iptal';
+   var isBekleyen=w.durum==='beklemede';
+   if(_woDurum.has('done')&&isDone)return true;
+   if(_woDurum.has('active')&&isActive)return true;
+   if(_woDurum.has('partial')&&isPartial)return true;
+   if(_woDurum.has('none')&&isNone)return true;
+   if(_woDurum.has('iptal')&&isIptal)return true;
+   if(_woDurum.has('bekleyen')&&isBekleyen)return true;
+   return false;
+  });
+ }
  wos.sort((a,b)=>{const oa=getOrd(a.orderId),ob=getOrd(b.orderId);return(oa?.tarih||'').localeCompare(ob?.tarih||'')||a.sira-b.sira;});
  if(!wos.length){document.getElementById('wo-rows').innerHTML=`<div class="empty"><p>Sonuç yok</p></div>`;refreshSel('wo');return;}
  const makeRow=w=>{
@@ -12539,6 +12558,17 @@ function ieGrpAll(acik){
  });
 }
 
+function woDurumAll(cb){
+ document.querySelectorAll('.wof-s-chk').forEach(function(c){c.checked=cb.checked;});
+ renderWORows();
+}
+function woDurumChk(){
+ var all=document.querySelectorAll('.wof-s-chk');
+ var checked=document.querySelectorAll('.wof-s-chk:checked');
+ var allCb=document.getElementById('wof-s-all');
+ if(allCb)allCb.checked=all.length===checked.length;
+ renderWORows();
+}
 function ordDurumAll(cb){
  document.querySelectorAll('.ord-s-chk').forEach(function(c){c.checked=cb.checked;});
  filterOrders();
