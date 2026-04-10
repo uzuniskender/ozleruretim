@@ -4292,7 +4292,8 @@ function filterOrders(){
  const q=(document.getElementById('ord-q')?.value||'').toLowerCase();
  var _chks=document.querySelectorAll('.ord-s-chk:checked');
  var _secili=new Set();_chks.forEach(function(c){_secili.add(c.value);});
- var _hepsi=_secili.size===0||_secili.size===document.querySelectorAll('.ord-s-chk').length;
+ var _ordTotal=document.querySelectorAll('.ord-s-chk').length;
+ var _hepsi=!window._ordDurumTouched||_secili.size===0||_secili.size===_ordTotal;
  const sortBy=document.getElementById('ord-sort')?.value||'oncelik';
  const el=document.getElementById('ord-grid');if(!el)return;
  let orders=S.orders.slice();
@@ -4986,7 +4987,8 @@ function renderWORows(){
  const q=(document.getElementById('wof-q')?.value||'').toLowerCase();
  var _woChks=document.querySelectorAll('.wof-s-chk:checked');
  var _woDurum=new Set();_woChks.forEach(function(c){_woDurum.add(c.value);});
- var _woHepsi=_woDurum.size===0||_woDurum.size===document.querySelectorAll('.wof-s-chk').length;
+ var _woTotal=document.querySelectorAll('.wof-s-chk').length;
+ var _woHepsi=!window._woDurumTouched||_woDurum.size===0||_woDurum.size===_woTotal;
  const fg=document.getElementById('wo-grp-f')?.value||'mamul';
  var _grpBtns=document.getElementById('wo-grp-btns');if(_grpBtns)_grpBtns.style.display=(fg==='operasyon'||fg==='siparis')?'inline':'none';
  // Tip filtresi - çoklu seçim
@@ -12570,10 +12572,12 @@ function ieGrpAll(acik){
 }
 
 function woDurumAll(cb){
+ window._woDurumTouched=true;
  document.querySelectorAll('.wof-s-chk').forEach(function(c){c.checked=cb.checked;});
  renderWORows();
 }
 function woDurumChk(){
+ window._woDurumTouched=true;
  var all=document.querySelectorAll('.wof-s-chk');
  var checked=document.querySelectorAll('.wof-s-chk:checked');
  var allCb=document.getElementById('wof-s-all');
@@ -12581,10 +12585,12 @@ function woDurumChk(){
  renderWORows();
 }
 function ordDurumAll(cb){
+ window._ordDurumTouched=true;
  document.querySelectorAll('.ord-s-chk').forEach(function(c){c.checked=cb.checked;});
  filterOrders();
 }
 function ordDurumChk(){
+ window._ordDurumTouched=true;
  var all=document.querySelectorAll('.ord-s-chk');
  var checked=document.querySelectorAll('.ord-s-chk:checked');
  var allCb=document.getElementById('ord-s-all');
