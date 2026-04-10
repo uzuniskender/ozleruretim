@@ -154,6 +154,10 @@ input,select,textarea,.md,.main td{-webkit-user-select:text;-moz-user-select:tex
     <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="6" width="14" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M1 6l7-4 7 4" stroke="currentColor" stroke-width="1.2"/><rect x="5" y="9" width="6" height="6" stroke="currentColor" stroke-width="1.2"/></svg>
     Depolar<span class="nb" id="nb-wh">0</span>
   </div>
+  <div class="ni" data-p="sevkiyat" onclick="nav('sevkiyat')">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M1 12h10v2H1zM11 10l4 3-4 3z" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M3 12V6h8v6" stroke="currentColor" stroke-width="1.2"/><circle cx="4" cy="14" r="1" fill="currentColor"/><circle cx="9" cy="14" r="1" fill="currentColor"/></svg>
+    Sevkiyat<span class="nb" id="nb-svk">0</span>
+  </div>
   <div class="ns">Tanımlar</div>
   <div class="ni" data-p="bomtree" onclick="nav('bomtree')">
     <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="3" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="3" cy="13" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="13" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="5" x2="3" y2="11" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="5" x2="13" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -208,6 +212,7 @@ input,select,textarea,.md,.main td{-webkit-user-select:text;-moz-user-select:tex
   <div id="p-entry" class="page"></div>
 <div id="p-kesimplan" class="page"></div>
   <div id="p-warehouse" class="page"></div>
+  <div id="p-sevkiyat" class="page"></div>
   <div id="p-bomtree" class="page"></div>
   <div id="p-recipes" class="page"></div>
   <div id="p-workorders" class="page"></div>
@@ -939,12 +944,20 @@ function showModal(html){document.getElementById('modal-root').innerHTML=`<div c
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
 // ── Kesim Planları ──
 function syncKesimPlanlar(){
- // Sadece durum güncelle — k.adet ve k.tamamlandi'ye DOKUNMA
+ // Kesim planı durumlarını üretim girişlerinden senkronize et
  (S.kesimPlanlari||[]).forEach(function(plan){
   plan.satirlar.forEach(function(satir){
+   satir.kesimler.forEach(function(k){
+    var w=getWO(k.woId);
+    if(w){
+     // Üretim girişinden tamamlanan miktarı al
+     var prod=wProd(w.id);
+     // tamamlandi: üretim miktarı veya mevcut değer (hangisi büyükse)
+     k.tamamlandi=Math.max(k.tamamlandi||0, Math.min(prod, k.adet));
+    }
+   });
    var tumTamam=satir.kesimler.every(function(k){
     var w=getWO(k.woId);
-    // WO tamamen bittiyse tamam say
     if(w&&wPct(w)>=100)return true;
     return (k.tamamlandi||0)>=k.adet;
    });
@@ -955,7 +968,6 @@ function syncKesimPlanlar(){
   var planKismi=plan.satirlar.some(function(s){return s.durum==='tamam'||s.durum==='kismi';});
   plan.durum=planTamam?'tamamlandi':planKismi?'kismi':'bekliyor';
  });
- // NOT: k.adet değiştirilmiyor — kesimPlanOlustur'da doğru set edildi
 }
 
 function rKesimPlan(){
@@ -1510,7 +1522,7 @@ function kesimPlanDetay(planId){
   html+='<span style="font-size:11px;color:'+_durumRenk+';font-family:var(--mono)">'+tamamSay+'/'+grup.satirlar.length+' tamamlandı</span>';
   // Toplu Kesildi butonu
   if(!isOpr&&!hepsitamam){
-   html+='<button class="btn bp btn-sm kp-toplu-kesildi" data-pid="'+planId+'" data-fp="'+esc(fp)+'" style="white-space:nowrap">\u2713 Toplu Kesildi</button>';
+   html+='<button class="btn bs btn-sm" onclick="nav(\'entry\');toast(\'Kesim iş emirlerini Üretim Girişi sayfasından kaydedin\')" style="white-space:nowrap">↗ Üretim Girişinden Kaydet</button>';
   }
   html+='</div>';
   // Expand body
@@ -1526,7 +1538,7 @@ function kesimPlanDetay(planId){
   grup.satirlar.forEach(function(satir){
    var _durum=satir.durum==='tamam'
     ?'<span style="color:var(--green);font-size:11px">\u2713 Tamamlandı</span>'
-    :(!isOpr?'<button class="btn bp btn-xs kp-kesildi-btn" data-pid="'+planId+'" data-sid="'+satir.id+'">\u2713 Kesildi</button>':'');
+    :(!isOpr?'<button class="btn bs btn-xs" onclick="nav(\'entry\');toast(\'Kesim iş emrini Üretim Girişi sayfasından kaydedin\')">↗ Üretim Girişi</button>':'');
    html+='<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border);font-size:11px">'
     +'<span style="font-family:var(--mono);color:var(--t2)">\u2022 '+satir.hamAdet+' bar</span>'
     +'<span style="color:var(--t2)">'+(satir.durum==='tamam'?'tamam':'bekliyor')+'</span>'
@@ -2178,7 +2190,7 @@ function nav(p){
  document.getElementById('p-'+p).classList.add('active');
  ({dashboard:rDash,orders:rOrders,workorders:rWO,entry:rEntry,warehouse:rWarehouse,
  bomtree:rBomTree,recipes:rRecipes,materials:rMalzYonetim,malzyonetim:rMalzYonetim,
- operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan})[p]?.();
+ operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan,sevkiyat:rSevkiyat})[p]?.();
  updateBadges();
 }
 function updateBadges(){
@@ -2212,6 +2224,7 @@ function runMigration(){
  if(!S.materials)S.materials=[];
  if(!S.malzemeler)S.malzemeler=[];
  if(!S.stokHareketler)S.stokHareketler=[];
+ if(!S.sevkler)S.sevkler=[];
  if(!S.fireLogs)S.fireLogs=[];
  if(!S.izinler)S.izinler=[];
  if(!S.tedarikler)S.tedarikler=[];
@@ -4172,13 +4185,13 @@ function rWO(){
  el.innerHTML=`
  <div class="ph"><div><h1>İş Emirleri</h1><p>${S.workOrders.length} toplam</p></div>
  <button class="btn bs" onclick="exportWOsXLSX(S.workOrders,'tum_is_emirleri_'+today()+'.xlsx')">⬇ Tümünü Excel'e Aktar</button>
- <button class="btn bs btn-sm" onclick="woGrpAll(true)">▼ Tümünü Aç</button>
- <button class="btn bs btn-sm" onclick="woGrpAll(false)">▲ Tümünü Kapat</button>
+ <span id="wo-grp-btns" style="display:none"><button class="btn bs btn-sm" onclick="woGrpAll(true)">▼ Tümünü Aç</button>
+ <button class="btn bs btn-sm" onclick="woGrpAll(false)">▲ Tümünü Kapat</button></span>
  <button class="btn bs" onclick="showYMIEListModal()">+ YM İş Emri</button></div>
  <div class="tw">
  ${selToolbar('wo',{deleteLabel:'Seçilenleri Sil',exportLabel:'Excel Aktar',copyBtn:true})}
  <div class="tt"><div class="fr">
- <input id="wof-q" placeholder="İE no veya malzeme ara..." style="width:220px" oninput="renderWORows()"><select id="wo-grp-f" style="width:auto;min-width:140px" onchange="renderWORows()"><option value="mamul">Malzeme Bazı</option><option value="siparis">Sipariş Bazı</option></select>
+ <input id="wof-q" placeholder="İE no veya malzeme ara..." style="width:220px" oninput="renderWORows()"><select id="wo-grp-f" style="width:auto;min-width:140px" onchange="renderWORows()"><option value="mamul">Malzeme Bazı</option><option value="siparis">Sipariş Bazı</option><option value="operasyon">Operasyon Bazı</option></select>
  <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px">
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:600"><input type="checkbox" id="wof-tip-tumu" checked onchange="woTipToggle(this)"> Tümü</label>
   <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" class="wof-tip-chk" value="siparis" checked onchange="woTipChk()"> Siparişten Açılan</label>
@@ -4794,6 +4807,7 @@ function renderWORows(){
  const q=(document.getElementById('wof-q')?.value||'').toLowerCase();
  const fs=document.getElementById('wof-s')?.value||'';
  const fg=document.getElementById('wo-grp-f')?.value||'mamul';
+ var _grpBtns=document.getElementById('wo-grp-btns');if(_grpBtns)_grpBtns.style.display=(fg==='operasyon'||fg==='siparis')?'inline':'none';
  // Tip filtresi - çoklu seçim
  var tipChks=document.querySelectorAll('.wof-tip-chk:checked');
  var tipSecili=Array.from(tipChks).map(function(c){return c.value;});
@@ -5484,9 +5498,11 @@ function rWarehouse(){
  +'<div class="mtab-bar">'
  +'<div class="mtab '+(tab==="stok"?"active":"")+'" onclick="window._whTab=\'stok\';rWarehouse()">Stok Durumu</div>'
  +'<div class="mtab '+(tab==="hareketler"?"active":"")+'" onclick="window._whTab=\'hareketler\';rWarehouse()">Hareket Geçmişi</div>'
+ +'<div class="mtab '+(tab==="sevkiyat"?"active":"")+'" onclick="window._whTab=\'sevkiyat\';rWarehouse()">Sevkiyat</div>'
  +'</div>'
  +'<div id="wh-content"></div>';
  if(tab==='stok') renderStokDurumu();
+ else if(tab==='sevkiyat') renderSevkiyat();
  else renderStokHareketler();
 }
 function renderStokDurumu(){
@@ -5599,6 +5615,97 @@ function renderStokHareketler(){
  +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
  :'<div class="empty"><p>Hareket yok</p></div>');
 }
+
+// ═══════════════════════════════════════
+// SEVKİYAT
+// ═══════════════════════════════════════
+function renderSevkiyat(){
+ var el=document.getElementById('wh-content');if(!el)return;
+ if(!S.sevkler)S.sevkler=[];
+ // Mamul stokları hesapla
+ var stokMap={};
+ (S.stokHareketler||[]).forEach(function(h){
+  if(!stokMap[h.malkod])stokMap[h.malkod]={malkod:h.malkod,malad:h.malad,miktar:0};
+  if(h.tip==='giris')stokMap[h.malkod].miktar+=h.miktar;
+  else stokMap[h.malkod].miktar-=h.miktar;
+ });
+ var mamulStok=Object.values(stokMap).filter(function(x){
+  var m=(S.malzemeler||[]).find(function(ml){return ml.kod===x.malkod;});
+  return m&&(m.tip==='Mamul'||m.tip==='BitmisMamul')&&x.miktar>0;
+ }).sort(function(a,b){return (a.malad||'').localeCompare(b.malad||'','tr');});
+ // Sevk geçmişi
+ var sevkler=(S.sevkler||[]).sort(function(a,b){return (b.tarih||'').localeCompare(a.tarih||'');});
+ var stokHtml=mamulStok.length
+  ?'<div class="tw" style="margin-bottom:16px"><div class="tt"><span style="font-weight:600">Sevk Edilebilir Mamul Stok</span></div>'
+  +'<table><thead><tr><th>Malzeme Kodu</th><th>Malzeme Adı</th><th style="text-align:right">Stok</th><th></th></tr></thead><tbody>'
+  +mamulStok.map(function(x){
+   return '<tr><td style="font-family:var(--mono);font-size:11px;color:var(--ac)">'+esc(x.malkod)+'</td>'
+   +'<td>'+esc(x.malad)+'</td>'
+   +'<td style="text-align:right;font-family:var(--mono);font-weight:600">'+Math.round(x.miktar)+'</td>'
+   +'<td><button class="btn bp btn-xs" data-kod="'+esc(x.malkod)+'" onclick="showSevkModal(this.dataset.kod)">📦 Sevk Et</button></td></tr>';
+  }).join('')+'</tbody></table></div>'
+  :'<div class="info-box" style="margin-bottom:16px">Sevk edilebilir mamul stok yok.</div>';
+ var gecmisHtml=sevkler.length
+  ?'<div class="tw"><div class="tt"><span style="font-weight:600">Sevk Geçmişi</span><span style="font-size:11px;color:var(--t2);margin-left:auto">'+sevkler.length+' sevkiyat</span></div>'
+  +'<table><thead><tr><th>Tarih</th><th>Sipariş</th><th>Müşteri</th><th>Malzeme</th><th style="text-align:right">Miktar</th><th>Not</th></tr></thead><tbody>'
+  +sevkler.slice(0,50).map(function(s){
+   return '<tr><td style="font-family:var(--mono);font-size:11px">'+esc(s.tarih)+'</td>'
+   +'<td style="font-family:var(--mono);font-size:11px;color:var(--ac)">'+esc(s.siparisNo||'—')+'</td>'
+   +'<td>'+esc(s.musteri||'—')+'</td>'
+   +'<td style="font-size:11px">'+esc(s.malad||s.malkod)+'</td>'
+   +'<td style="text-align:right;font-family:var(--mono);font-weight:600">'+s.miktar+'</td>'
+   +'<td style="font-size:11px;color:var(--t2)">'+esc(s.not||'')+'</td></tr>';
+  }).join('')+'</tbody></table></div>'
+  :'<div class="empty"><p>Henüz sevkiyat kaydı yok.</p></div>';
+ el.innerHTML=stokHtml+gecmisHtml;
+}
+function showSevkModal(malkod){
+ var m=(S.malzemeler||[]).find(function(x){return x.kod===malkod;});
+ var stok=getStok(malkod);
+ var ordOpts=(S.orders||[]).map(function(o){
+  return '<option value="'+o.id+'">'+esc(o.siparisNo)+' · '+esc(o.musteri||'')+'</option>';
+ }).join('');
+ showModal('<div class="md md-sm">'
+  +'<div class="mt">📦 Sevk Emri</div>'
+  +'<div class="msub">'+esc(malkod)+' · '+esc(m?m.ad:'')+' — Stok: <strong>'+Math.round(stok)+'</strong></div>'
+  +'<div class="fg"><label class="lbl">Sipariş</label>'
+  +'<select id="sevk-ord"><option value="">— Sipariş seç (opsiyonel) —</option>'+ordOpts+'</select></div>'
+  +'<div class="fg fg2">'
+  +'<div><label class="lbl">Miktar *</label><input type="number" id="sevk-mik" min="1" max="'+Math.round(stok)+'" value="'+Math.round(stok)+'" step="1"></div>'
+  +'<div><label class="lbl">Tarih</label><input type="date" id="sevk-tar" value="'+today()+'"></div>'
+  +'</div>'
+  +'<div class="fg"><label class="lbl">Açıklama</label><input id="sevk-not" placeholder="İrsaliye no, araç plakası vb."></div>'
+  +'<div class="mf">'
+  +'<button class="btn bs" onclick="closeModal()">İptal</button>'
+  +'<button class="btn bp" data-kod="'+esc(malkod)+'" onclick="saveSevk(this.dataset.kod)">Sevk Et</button>'
+  +'</div></div>');
+}
+async function saveSevk(malkod){
+ var mik=parseInt(document.getElementById('sevk-mik')?.value)||0;
+ var tarih=document.getElementById('sevk-tar')?.value||today();
+ var not_=document.getElementById('sevk-not')?.value||'';
+ var ordId=document.getElementById('sevk-ord')?.value||'';
+ if(mik<=0){toast('Geçerli miktar girin','err');return;}
+ var stok=getStok(malkod);
+ if(mik>stok){toast('Stok yetersiz! Mevcut: '+Math.round(stok),'err');return;}
+ var m=(S.malzemeler||[]).find(function(x){return x.kod===malkod;});
+ var ord=ordId?getOrd(ordId):null;
+ if(!S.sevkler)S.sevkler=[];
+ S.sevkler.push({
+  id:uid(),tarih:tarih,malkod:malkod,malad:m?m.ad:'',miktar:mik,
+  orderId:ordId,siparisNo:ord?ord.siparisNo:'',musteri:ord?ord.musteri:'',not:not_
+ });
+ if(!S.stokHareketler)S.stokHareketler=[];
+ S.stokHareketler.push({
+  id:uid(),tarih:tarih,malkod:malkod,malad:m?m.ad:'',miktar:mik,tip:'cikis',
+  aciklama:'Sevkiyat'+(ord?' — '+ord.siparisNo:'')+(not_?' — '+not_:'')
+ });
+ await saveS();
+ closeModal();
+ toast(mik+' adet '+esc(malkod)+' sevk edildi ✓');
+ window._whTab='sevkiyat';rWarehouse();
+}
+
 function showStokGirisModal(malkod){
  window._sgMalkod=malkod||'';
  window._sgSatirlar=[];
@@ -12187,13 +12294,18 @@ function woGrpToggle(el){
 }
 
 function woGrpAll(acik){
- document.querySelectorAll('[data-grpid]').forEach(function(el){
+ // Operasyon modundaki gruplar (data-grpid)
+ document.querySelectorAll('#p-workorders [data-grpid]').forEach(function(el){
   var grpId=el.dataset.grpid;
   var body=document.getElementById(grpId+'-body');
   var arrow=document.getElementById(grpId+'-arrow');
   if(body)body.style.display=acik?'block':'none';
   if(arrow)arrow.style.transform=acik?'rotate(90deg)':'rotate(0deg)';
   try{localStorage.setItem(el.dataset.key,acik?'1':'0');}catch(e){}
+ });
+ // Sipariş modundaki gruplar (op-group-body)
+ document.querySelectorAll('#p-workorders .op-group-body').forEach(function(el){
+  if(acik)el.classList.add('open');else el.classList.remove('open');
  });
 }
 function ieGrpAll(acik){
@@ -13524,6 +13636,7 @@ async function _sistemTestTemizle(){
  });
  // Kesim planlarından sadece test kaynaklıları sil (gerçek planlar korunsun)
  S.tedarikler=(S.tedarikler||[]).filter(function(t){return !eskiOrdIds.has(t.orderId);});
+ S.sevkler=(S.sevkler||[]).filter(function(s){return !eskiOrdIds.has(s.orderId);});
  S.stokHareketler=(S.stokHareketler||[]).filter(function(h){return !(h.aciklama||'').includes('SistemTest');});
  await saveS();
  return eskiOrdIds.size;
@@ -14308,6 +14421,7 @@ async function fabrikaSifirlaOnayla(){
  S.workOrders=[];
  S.kesimPlanlari=[];
  S.stokHareketler=[];
+ S.sevkler=[];
  S.tedarikler=[];
  S.orders=[];
  S.logs=[];
