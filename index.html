@@ -123,6 +123,7 @@ input,select,textarea,.md,.main td{-webkit-user-select:text;-moz-user-select:tex
   
   <button onclick="veriAktar()" title="Veriyi Dışa Aktar (JSON)" style="background:none;border:1px solid var(--green);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:12px;color:var(--green);margin-right:4px">⬇ Aktar</button>
   <button onclick="yenileVeri()" title="Veriyi Yenile" style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:12px;color:var(--t2);margin-right:8px">↺ Yenile</button>
+  <div id="zincir-durum" style="display:flex;gap:6px;margin-right:8px"></div>
   <div class="top-live">● AKTİF</div>
 </div>
 
@@ -2215,6 +2216,32 @@ function updateBadges(){
   if(bdgKP){
    var bekleyenKP=(S.kesimPlanlari||[]).filter(function(p){return p.durum!=='tamamlandi';}).length;
    bdgKP.textContent=bekleyenKP>0?bekleyenKP:'';
+  }
+  // ── Zincir durum göstergeleri ──
+  var zdEl=document.getElementById('zincir-durum');
+  if(zdEl&&S.orders){
+   var aktifOrds=(S.orders||[]).filter(function(o){return o.durum!=='Tamamlandı'&&o.durum!=='İptal';});
+   if(!aktifOrds.length){zdEl.innerHTML='';} else {
+    // Kesim: planı olmayan aktif kesim IE'leri
+    var planlananWoIds=new Set();
+    (S.kesimPlanlari||[]).forEach(function(p){(p.satirlar||[]).forEach(function(s){(s.kesimler||[]).forEach(function(k){planlananWoIds.add(k.woId);});});});
+    var kesimWOs=(S.workOrders||[]).filter(function(w){if(wPct(w)>=100||w.durum==='iptal')return false;var op=(S.operations||[]).find(function(o){return o.id===w.opId;});return(op?.ad||'').toUpperCase().includes('KES');});
+    var kesimEksik=kesimWOs.filter(function(w){return!planlananWoIds.has(w.id);}).length;
+    // MRP: mrpDurum kontrolü
+    var mrpEksik=aktifOrds.filter(function(o){return o.mrpDurum!=='tamamlandi';}).length;
+    // Tedarik: karşılanmamış kalemler
+    var tedEksik=(S.tedarikler||[]).filter(function(t){return!t.geldi&&t.durum!=='iptal';}).length;
+    function zBdg(ok,label,count,page){
+     var renk=ok?'var(--green)':'var(--red)';
+     var bg=ok?'rgba(16,185,129,.1)':'rgba(239,68,68,.1)';
+     var border=ok?'rgba(16,185,129,.25)':'rgba(239,68,68,.25)';
+     return '<div onclick="nav(\''+page+'\')" style="cursor:pointer;display:flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;background:'+bg+';border:1px solid '+border+';font-size:10px;font-family:var(--mono);font-weight:600;color:'+renk+'" title="'+(ok?'Tamam':'Eksik: '+count)+'">'
+      +(ok?'✓':''+count)+' '+label+'</div>';
+    }
+    zdEl.innerHTML=zBdg(kesimEksik===0,'KESİM',kesimEksik,'kesimplan')
+     +zBdg(mrpEksik===0,'MRP',mrpEksik,'orders')
+     +zBdg(tedEksik===0,'TEDARİK',tedEksik,'warehouse');
+   }
   }
  }catch(e){}
 }
@@ -4571,24 +4598,139 @@ async function _buildWOs(oid,sno,urunler,whAllocs){
  if(_ordObj)_ordObj.mrpDurum='bekliyor';
  await saveS();updateBadges();
  closeModal();
- showModal('<div class="md md-sm">'
-  +'<div class="mt">✅ Sipariş Oluşturuldu</div>'
-  +'<div style="font-size:12px;color:var(--t2);margin-bottom:16px">'+woIdx+' iş emri açıldı.</div>'
-  +'<div style="background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:16px">'
-  +'<b>Sıradaki adım:</b><br>'
-  +'1. Kesim Planları → <b>Plan Oluştur</b><br>'
-  +'2. MRP → eksik malzemeleri seç → <b>Toplu Tedarik</b>'
-  +'</div>'
-  +'<div class="mf">'
-  +'<button class="btn bs" onclick="closeModal();rOrders()">Siparişlere Dön</button>'
-  +'<button class="btn bp" onclick="closeModal();nav(\'kesimplan\');rKesimPlan()">✂ Kesim Planına Git</button>'
-  +'</div></div>');
+ // ═══ OTOMATİK ZİNCİR: Kesim Planı → MRP → Tedarik ═══
+ await autoZincir(oid, woIdx);
 
  if(noStWarnings.length){
  setTimeout(()=>toast(`⚠ ${noStWarnings.length} iş emrinde istasyon tanımlı değil — Reçete düzenleyerek atayabilirsiniz`),1500);
  }
 
 }
+// ═══════════════════════════════════════════════════════════
+// OTOMATİK ZİNCİR: Sipariş → Kesim Planı → MRP → Tedarik
+// ═══════════════════════════════════════════════════════════
+async function autoZincir(orderId, woCount){
+ var ord=getOrd(orderId);if(!ord)return;
+ var sno=ord.siparisNo||'?';
+ var adimlar=[];
+ // Progress modal
+ function progress(html){
+  showModal('<div class="md md-sm"><div class="mt">⚙ Sipariş Zinciri Çalışıyor</div>'
+   +'<div class="msub">'+esc(sno)+'</div>'
+   +'<div id="az-steps">'+html+'</div></div>');
+ }
+ function step(icon,text){return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">'+icon+' '+text+'</div>';}
+ var s1='✅',s2='⏳',s3='⏳',s4='⏳';
+ progress(step(s1, woCount+' iş emri oluşturuldu')+step(s2,'Kesim planı oluşturuluyor...')+step(s3,'MRP bekliyor')+step(s4,'Tedarik bekliyor'));
+ await new Promise(function(r){setTimeout(r,200);});
+
+ // ── ADIM 1: Kesim Planı ──
+ try{
+  await _kesimPlanOlusturCore();
+  // Fire önerilerini otomatik uygula
+  (S.kesimPlanlari||[]).forEach(function(plan){
+   if(plan.durum==='tamamlandi')return;
+   var _isLevha=(plan.hamEn||0)>0;
+   (plan.satirlar||[]).forEach(function(satir){
+    var _devam=true;var _maxLoop=50;
+    while(_devam&&_maxLoop-->0){
+     _devam=false;
+     var _fire=_isLevha
+      ?Math.round((plan.hamBoy||0)*(plan.hamEn||0)*satir.hamAdet-satir.kesimler.reduce(function(a,k){return a+(k.parcaBoy||0)*(k.parcaEn||0)*(k.adet||0);},0))
+      :Math.round((plan.hamBoy||0)*satir.hamAdet-satir.kesimler.reduce(function(a,k){return a+(k.parcaBoy||0)*(k.adet||0);},0));
+     if(_fire<=50)break;
+     // En büyük sığabilecek parçayı bul ve ekle
+     var enIyi=null;var enIyiAdet=0;
+     satir.kesimler.forEach(function(k){
+      var pb=k.parcaBoy||0;if(!pb)return;
+      var ekAdet=_isLevha?0:Math.floor(_fire/pb);
+      if(ekAdet>0&&ekAdet>enIyiAdet){enIyi=k;enIyiAdet=ekAdet;}
+     });
+     if(enIyi&&enIyiAdet>0){enIyi.adet+=enIyiAdet;_devam=true;}
+    }
+   });
+  });
+  s2='✅';adimlar.push('Kesim planı oluşturuldu');
+ }catch(e){
+  s2='⚠️';adimlar.push('Kesim planı hatası: '+e.message);
+ }
+
+ progress(step(s1, woCount+' iş emri oluşturuldu')+step(s2,adimlar[adimlar.length-1]||'Kesim planı')+step(s3,'MRP hesaplanıyor...')+step(s4,'Tedarik bekliyor'));
+ await new Promise(function(r){setTimeout(r,200);});
+
+ // ── ADIM 2: MRP ──
+ var mrpSonuc=[];
+ try{
+  mrpSonuc=hesaplaMRP([orderId]);
+  if(ord)ord.mrpDurum='tamamlandi';
+  s3='✅';
+  var eksikSay=mrpSonuc.filter(function(x){return x.durum==='eksik';}).length;
+  adimlar.push('MRP: '+mrpSonuc.length+' kalem hesaplandı'+(eksikSay?' · '+eksikSay+' eksik':''));
+ }catch(e){
+  s3='⚠️';adimlar.push('MRP hatası: '+e.message);
+ }
+
+ progress(step(s1, woCount+' iş emri oluşturuldu')+step(s2,'Kesim planı ✓')+step(s3,adimlar[adimlar.length-1]||'MRP')+step(s4,'Tedarik listesi oluşturuluyor...'));
+ await new Promise(function(r){setTimeout(r,200);});
+
+ // ── ADIM 3: Tedarik Otomatik Oluştur ──
+ var tedSay=0;
+ try{
+  tedSay=autoTedarikOlustur(mrpSonuc, orderId);
+  s4='✅';adimlar.push(tedSay>0?tedSay+' tedarik kalemi oluşturuldu':'Tüm malzemeler yeterli');
+ }catch(e){
+  s4='⚠️';adimlar.push('Tedarik hatası: '+e.message);
+ }
+
+ await saveS();updateBadges();
+
+ // ── SONUÇ MODAL ──
+ var eksikler=mrpSonuc.filter(function(x){return x.durum==='eksik';});
+ var eksikRows=eksikler.slice(0,15).map(function(x){
+  return '<tr><td style="font-family:var(--mono);font-size:10px;color:var(--ac)">'+esc(x.malkod)+'</td>'
+   +'<td style="font-size:11px">'+esc(x.malad)+'</td>'
+   +'<td style="text-align:right;font-family:var(--mono)">'+x.brut+'</td>'
+   +'<td style="text-align:right;font-family:var(--mono);color:var(--green)">'+Math.round(x.stok||0)+'</td>'
+   +'<td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">'+x.net+'</td></tr>';
+ }).join('');
+ showModal('<div class="md md-lg"><div class="mt">✅ Sipariş Zinciri Tamamlandı</div>'
+  +'<div class="msub">'+esc(sno)+' · '+esc(ord.musteri||'')+'</div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
+  +'<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t2)">İş Emirleri</div><div style="font-size:20px;font-weight:300;color:var(--ac)">'+woCount+'</div></div>'
+  +'<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t2)">Kesim Planı</div><div style="font-size:20px;font-weight:300;color:var(--green)">'+s2+'</div></div>'
+  +'<div style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t2)">MRP</div><div style="font-size:20px;font-weight:300;color:var(--cyan)">'+mrpSonuc.length+'</div></div>'
+  +'<div style="background:'+(tedSay>0?'rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2)':'rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2)')+';border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--t2)">Tedarik</div><div style="font-size:20px;font-weight:300;color:'+(tedSay>0?'var(--amber)':'var(--green)')+'">'+tedSay+'</div></div>'
+  +'</div>'
+  +(eksikRows?'<div class="tw" style="margin-bottom:12px"><div class="tt"><span style="font-weight:600;color:var(--red)">Eksik Malzemeler ('+eksikler.length+')</span></div>'
+   +'<table><thead><tr><th>Kod</th><th>Malzeme</th><th style="text-align:right">İhtiyaç</th><th style="text-align:right">Stok</th><th style="text-align:right">Eksik</th></tr></thead><tbody>'+eksikRows+'</tbody></table></div>':'')
+  +'<div class="mf">'
+  +'<button class="btn bs" onclick="closeModal();rOrders()">Siparişlere Dön</button>'
+  +'<button class="btn bcy" onclick="closeModal();showMRPModal()">📊 MRP Detay</button>'
+  +'<button class="btn bp" onclick="closeModal();nav(\'kesimplan\')">✂ Kesim Planı</button>'
+  +'</div></div>');
+}
+
+function autoTedarikOlustur(mrpSonuc, orderId){
+ if(!S.tedarikler)S.tedarikler=[];
+ var ord=getOrd(orderId);
+ var count=0;
+ mrpSonuc.filter(function(x){return x.durum==='eksik'&&x.net>0;}).forEach(function(x){
+  // Bu malzeme+sipariş için zaten açık tedarik var mı?
+  var mevcutTed=(S.tedarikler||[]).find(function(t){
+   return t.malkod===x.malkod&&t.orderId===orderId&&!t.geldi;
+  });
+  if(mevcutTed)return; // zaten var, tekrar oluşturma
+  S.tedarikler.push({
+   id:uid(),malkod:x.malkod,malad:x.malad,miktar:x.net,
+   siparisTarih:today(),beklenenTarih:ord?ord.termin:'',
+   orderId:orderId,siparisNo:ord?ord.siparisNo:'',
+   tedarikci:'',durum:'bekliyor',geldi:false,not:'Otomatik (Sipariş Zinciri)'
+  });
+  count++;
+ });
+ return count;
+}
+
 function showOrderDetail(oid){
  const o=getOrd(oid);if(!o)return;
  const ws=ordWOs(oid).sort((a,b)=>a.sira-b.sira);
