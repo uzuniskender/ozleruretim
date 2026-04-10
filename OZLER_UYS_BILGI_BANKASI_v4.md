@@ -1,7 +1,7 @@
 # Özler UYS — Bilgi Bankası (Tüm Oturumların Özeti)
 
-**Son güncelleme:** 2026-04-10 (oturum 2)  
-**Dosya:** `index.html` (~893 KB) — GitHub Pages'te yayında  
+**Son güncelleme:** 2026-04-10 (oturum 3)  
+**Dosya:** `index.html` (~911 KB) — GitHub Pages'te yayında  
 **URL (Yönetim):** `https://uzuniskender.github.io/ozleruretim/index.html`  
 **URL (Operatör):** `https://uzuniskender.github.io/ozleruretim/operator.html`  
 **URL (Yedek):** `https://uzuniskender.github.io/ozleruretim/backup.html`  
@@ -22,6 +22,7 @@
 - **UYS şifrelerini asla konuşmada yazma/gösterme/tekrarlama**
 - **Supabase Auth şifrelerini asla konuşmada yazma** — operatör servis hesabı dahil
 - BOM reçetelerinde hammadde seçimi: `pieces = floor(raw_length / cut_length)` ve waste % hesapla
+- **UI tercihi: Filtrelerde açılır pencere (dropdown) + checkbox kullan** (tek seçimli `<select>` yerine çoklu seçimli checkbox grubu tercih edilir)
 
 ---
 
@@ -104,6 +105,15 @@ ozleruretim/
 
 ## 6. VERSİYON GEÇMİŞİ
 
+### v22-online-auth-s3 (2026-04-10 oturum 3)
+- İstek #21: Tam otomatik zincir (autoZincir): Sipariş → İE → Kesim Planı → MRP → Tedarik
+- Üst bar durum göstergeleri: KESİM/MRP/TEDARİK kırmızı-yeşil badge (tıklanabilir)
+- Fire optimizasyon sonsuz döngü fix (_maxLoop=50 limiti)
+- Performans: _suppressSave (test sırasında tek save), lookup map, debounce, yield
+- Sevkiyat: Sipariş bazlı miktar kontrolü, kalan hesabı, siparişsiz sevk uyarısı
+- Sipariş + İE filtresi: Çoklu seçimli checkbox (dropdown select yerine)
+- Fabrika sıfırlamaya fireLogs/operatorNotes/activeWork eklendi
+
 ### v22-online-auth-s2 (2026-04-10 oturum 2)
 - Operatör paneli log uyumu: `operatorId` ↔ `operatorlar` dashboard/rapor senkronu
 - Sistem test: snapshot + geri yükleme mekanizması
@@ -140,12 +150,12 @@ ozleruretim/
 
 ## 7. BACKLOG
 
-### İstek #21 — Tam Otomatik Üretim Zinciri (ÖNCELİKLİ)
-- [ ] Sipariş → İE → Kesim Planı → MRP → Tedarik otomatik zincir
-- [ ] Kesim planı: yeni sipariş gelince mevcut planı güncelle/birleştir
-- [ ] Kesim planı: fire optimize, öneriler otomatik uygulanmış
-- [ ] Tedarik listesinde sipariş eşleme (hangi malzeme hangi siparişe)
-- [ ] Üst bar durum göstergeleri: Kesim (🔴/🟢) | MRP (🔴/🟢) | Tedarik (🔴/🟢)
+### İstek #21 — Tam Otomatik Üretim Zinciri
+- [x] Sipariş → İE → Kesim Planı → MRP → Tedarik otomatik zincir (autoZincir)
+- [x] Kesim planı: fire optimize, öneriler otomatik uygulanmış
+- [x] Tedarik listesinde sipariş eşleme (autoTedarikOlustur)
+- [x] Üst bar durum göstergeleri: Kesim (🔴/🟢) | MRP (🔴/🟢) | Tedarik (🔴/🟢)
+- [ ] Kesim planı: yeni sipariş gelince mevcut planı güncelle/birleştir (mevcut: yeni plan oluşturuyor)
 
 ### Diğer
 - [ ] Normalize veri geçişi (tek JSON → ayrı tablolar)
