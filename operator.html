@@ -147,10 +147,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-he
 </div>
 
 <!-- #10: Active status bar -->
-<div class="active-bar" id="activeBar" style="display:none">
-  <div style="display:flex;align-items:center"><div class="pulse"></div><span id="activeWOName">—</span> üzerinde çalışıyor</div>
-  <button onclick="stopWork()">■ Bitir</button>
-</div>
+<div id="activeBar" style="display:none"></div>
 
 <div class="tabs">
   <div class="tab act" onclick="switchTab('uretim')">🔧 Üretim</div>
@@ -241,25 +238,65 @@ function doLogin(){
 function doLogout(){_curUser=null;localStorage.removeItem('_uys_op_login');document.getElementById('loginScreen').style.display='flex';document.getElementById('mainApp').style.display='none';}
 function autoLogin(){const id=localStorage.getItem('_uys_op_login');if(id){const op=(S.operators||[]).find(o=>o.id===id);if(op){_curUser=op;document.getElementById('loginScreen').style.display='none';document.getElementById('mainApp').style.display='block';document.getElementById('curUserName').textContent=op.ad;document.getElementById('curUserBolum').textContent=op.bolum||'—';}}}
 
-// === #10: ACTIVE WORK ===
+// === #10: ACTIVE WORK — çoklu iş desteği ===
 function startWork(wid){
   if(!_curUser)return;
   const w=(S.workOrders||[]).find(x=>x.id===wid);if(!w)return;
-  // Remove existing active for this user
-  S.activeWork=(S.activeWork||[]).filter(a=>a.opId!==_curUser.id);
+  if(!S.activeWork)S.activeWork=[];
+  // Aynı iş zaten aktif mi?
+  const existing=S.activeWork.find(a=>a.opId===_curUser.id&&a.woId===wid);
+  if(existing){showToast('Bu işte zaten çalışıyorsunuz','warn');return;}
+  // Başka aktif işler var mı?
+  const otherActive=S.activeWork.filter(a=>a.opId===_curUser.id);
+  if(otherActive.length>0){
+    const names=otherActive.map(a=>a.woAd||'?').join(', ');
+    if(!confirm('⚠ Aktif işleriniz var: '+names+'\n\nBu işlere devam mı ediyorsunuz, yoksa tamamlandı mı?\n\nOK = Devam ediyor (ikinci iş başlat)\nİptal = Önce aktif işleri kapat'))return;
+  }
   S.activeWork.push({opId:_curUser.id,opAd:_curUser.ad,woId:wid,woAd:w.malad||w.malkod,baslangic:getNow(),tarih:new Date().toISOString().slice(0,10)});
   saveData();updateActiveBar();showToast('İşe başlandı','ok');
 }
-function stopWork(){
+function stopWork(woId){
   if(!_curUser)return;
-  S.activeWork=(S.activeWork||[]).filter(a=>a.opId!==_curUser.id);
-  saveData();updateActiveBar();showToast('İş bitirildi','ok');
+  const aw=S.activeWork.find(a=>a.opId===_curUser.id&&a.woId===woId);
+  if(!aw)return;
+  // Modal aç — veri girişi veya veri girişsiz kapatma
+  const w=(S.workOrders||[]).find(x=>x.id===woId);
+  if(w){
+    // Seçenek sun
+    const choice=confirm('İş emri kapatılıyor.\n\nÜretim verisi girmek ister misiniz?\n\nOK = Veri girişi yap\nİptal = Veri girişi olmadan kapat');
+    if(choice){
+      // Modalı aç, zamanları pre-fill et
+      openWO(woId);
+      // Pre-fill başlangıç saati
+      setTimeout(()=>{
+        const firstBas=document.querySelector('.iv-bas');
+        if(firstBas&&aw.baslangic)firstBas.value=aw.baslangic;
+        const firstBit=document.querySelector('.iv-bit');
+        if(firstBit)firstBit.value=getNow();
+      },100);
+    }else{
+      // Veri girişi olmadan kapat — süre bilgisi kaydet
+      const bitis=getNow();
+      const tv=validateTime(aw.baslangic,bitis);
+      if(!S.logs)S.logs=[];
+      S.logs.push({id:uid(),woId:woId,tarih:aw.tarih||new Date().toISOString().slice(0,10),saat:bitis,qty:0,
+        operatorId:_curUser.id,operators:[{id:_curUser.id,intervals:[{baslangic:aw.baslangic,bitis:bitis,nextDay:tv.nextDay||false,dk:tv.dk||0}]}],
+        vardiya:'',duruslar:[],not:'Veri girişi yok — süre kaydı'});
+    }
+    // Aktif listeden kaldır
+    S.activeWork=S.activeWork.filter(a=>!(a.opId===_curUser.id&&a.woId===woId));
+    saveData();updateActiveBar();render();
+  }
 }
 function updateActiveBar(){
   const bar=document.getElementById('activeBar');if(!_curUser){bar.style.display='none';return;}
-  const active=(S.activeWork||[]).find(a=>a.opId===_curUser.id);
-  if(active){bar.style.display='flex';document.getElementById('activeWOName').textContent=active.woAd||'—';}
-  else{bar.style.display='none';}
+  const actives=(S.activeWork||[]).filter(a=>a.opId===_curUser.id);
+  if(!actives.length){bar.style.display='none';return;}
+  bar.style.display='block';
+  bar.innerHTML=actives.map(a=>{
+    const tv=validateTime(a.baslangic,getNow());
+    return`<div class="active-bar"><div style="display:flex;align-items:center;flex:1"><div class="pulse"></div><span style="font-weight:600">${a.woAd||'—'}</span><span style="margin-left:6px;font-size:9px;color:var(--t2)">${a.baslangic}→ (${tv.dk||0}dk)</span></div><button onclick="stopWork('${a.woId}')">■ Bitir</button></div>`;
+  }).join('');
 }
 
 // === FILTERS (#2,#3) ===
@@ -343,8 +380,7 @@ function renderUretim(c){
   if(!wos.length){c.innerHTML='<div class="empty"><div class="icon">✅</div><div class="msg">'+(myBolum?myBolum+' — açık iş yok':'Tüm işler tamamlandı')+'</div></div>';return;}
   // #10: Start work button
   let html='';
-  const activeWO=(S.activeWork||[]).find(a=>a.opId===_curUser?.id);
-  if(!activeWO){html+='<div style="margin-bottom:8px;font-size:11px;color:var(--t3)">Bir iş emrine tıklayıp "İşe Başla" diyebilirsiniz</div>';}
+  const myActives=(S.activeWork||[]).filter(a=>a.opId===_curUser?.id);
   // #5: Message to manager
   html+=`<div class="msg-area"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">📨 Yöneticiye Mesaj</div><textarea id="mgrMsg" placeholder="Not veya sorun bildirin..."></textarea><button class="btn secondary" onclick="sendMgrMsg()" style="font-size:11px;padding:6px">Gönder</button></div>`;
   // Group by bolum
@@ -421,12 +457,16 @@ function openWO(wid){
     ${!isDone&&!sd.visible?'<div style="background:var(--errD);color:var(--err);padding:6px;border-radius:6px;margin-top:4px;font-size:11px">⛔ Stok yok — üretim yapılamaz</div>':''}
     ${!isDone&&sd.visible&&sd.maxQty<kalan?'<div style="background:var(--warnD);color:var(--warn);padding:6px;border-radius:6px;margin-top:4px;font-size:11px">⚠ Stokla max '+sd.maxQty+' adet üretilebilir</div>':''}
   `;
-  // #10: İşe başla butonu
-  const activeWO=(S.activeWork||[]).find(a=>a.opId===_curUser?.id);
+  // #10: İşe başla butonu — çoklu iş desteği
   let startHtml='';
   if(!isDone&&sd.visible){
-    if(!activeWO||activeWO.woId!==wid){startHtml=`<button class="start-btn" onclick="startWork('${wid}');closeModal()">▶ İŞE BAŞLA</button>`;}
-    else{startHtml='<div style="background:var(--okD);color:var(--ok);padding:6px;border-radius:6px;font-size:11px;text-align:center;margin-bottom:6px">✓ Bu işte çalışıyorsunuz</div>';}
+    const isActiveHere=(S.activeWork||[]).find(a=>a.opId===_curUser?.id&&a.woId===wid);
+    if(isActiveHere){
+      const tv=validateTime(isActiveHere.baslangic,getNow());
+      startHtml=`<div style="background:var(--okD);color:var(--ok);padding:6px;border-radius:6px;font-size:11px;text-align:center;margin-bottom:6px">✓ Bu işte çalışıyorsunuz (${isActiveHere.baslangic}→ ${tv.dk||0}dk)</div>`;
+    }else{
+      startHtml=`<button class="start-btn" onclick="startWork('${wid}');closeModal()">▶ İŞE BAŞLA</button>`;
+    }
   }
   // #7: Manager note
   const mNote=w.yoneticiNot||'';
@@ -437,6 +477,14 @@ function openWO(wid){
   document.getElementById('modalStok').innerHTML=sh;
   // Operators
   document.getElementById('opEntries').innerHTML='';addOpEntry();
+  // Pre-fill from activeWork
+  const aw=(S.activeWork||[]).find(a=>a.opId===_curUser?.id&&a.woId===wid);
+  if(aw){
+    setTimeout(()=>{
+      const firstBas=document.querySelector('.iv-bas');if(firstBas)firstBas.value=aw.baslangic||getNow();
+      const firstBit=document.querySelector('.iv-bit');if(firstBit)firstBit.value=getNow();
+    },50);
+  }
   // Qty
   const qi=document.getElementById('qtyInput');qi.value='';
   const maxQ=isDone?0:Math.min(kalan,sd.maxQty===Infinity?kalan:sd.maxQty);
@@ -540,7 +588,9 @@ async function saveEntry(){
   S.logs.push({id,woId:_curWO.id,tarih,saat,qty:q,operatorId:ops.length===1?ops[0].id:null,operators:ops,vardiya:'',duruslar,durusKod:duruslar.length?duruslar[0].kod:'',durusDk:duruslar.reduce((s,d)=>s+d.dk,0),fireQty:fireQ,fireNot,not:nt||'Mobil giriş'});
   // #8: Fire log
   if(fireQ>0){if(!S.fireLogs)S.fireLogs=[];S.fireLogs.push({id:uid(),malkod:_curWO.malkod,miktar:fireQ,tarih,woId:_curWO.id,not:fireNot});}
-  closeModal();await saveData();render();
+  // Kayıt sonrası aktif işten çıkar
+  S.activeWork=(S.activeWork||[]).filter(a=>!(a.opId===_curUser?.id&&a.woId===_curWO.id));
+  closeModal();await saveData();render();updateActiveBar();
 }
 function uid(){let c=parseInt(localStorage.getItem('_uys_uid_cnt')||'0')+1;localStorage.setItem('_uys_uid_cnt',String(c));return'mob'+Date.now().toString(36)+c.toString(36);}
 
