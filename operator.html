@@ -559,10 +559,15 @@ function switchTab(t){_curTab=t;document.querySelectorAll('.tab').forEach((e,i)=
 function sendMgrMsg(){
   const msg=document.getElementById('mgrMsg')?.value?.trim();if(!msg){showToast('Mesaj yazın','warn');return;}
   if(!S.operatorNotes)S.operatorNotes=[];
-  S.operatorNotes.push({id:uid(),opId:_curUser?.id,opAd:_curUser?.ad,tarih:new Date().toISOString().slice(0,10),saat:getNow(),mesaj:msg,okundu:false});
-  document.getElementById('mgrMsg').value='';saveData();
+  const note={id:uid(),opId:_curUser?.id,opAd:_curUser?.ad,tarih:new Date().toISOString().slice(0,10),saat:getNow(),mesaj:msg,okundu:false};
+  S.operatorNotes.push(note);
+  document.getElementById('mgrMsg').value='';
+  // Doğrudan tabloya yaz (realtime anında tetiklensin)
+  sb.from('uys_operator_notes').upsert({id:note.id,op_id:note.opId,op_ad:note.opAd,tarih:note.tarih,saat:note.saat,mesaj:note.mesaj,okundu:false},{onConflict:'id'}).then(()=>{
+   console.log('✅ Mesaj tabloya yazıldı');
+  }).catch(e=>console.warn('Mesaj tablo hatası:',e.message));
+  saveData();
   showToast('Mesaj gönderildi','ok');
-  // Yönetici ana sistemde: Veri Yönetimi > JSON'da operatorNotes dizisini görebilir
 }
 
 // === MODAL ===

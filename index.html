@@ -889,6 +889,29 @@ function startRealtime(){
 }
 function stopRealtime(){
  if(_rtChannel&&_sb){_sb.removeChannel(_rtChannel);_rtChannel=null;}
+ clearInterval(window._notePollTimer);
+}
+// Periyodik mesaj kontrolü (realtime'a ek güvenlik ağı)
+function startNotePoll(){
+ clearInterval(window._notePollTimer);
+ window._notePollTimer=setInterval(async function(){
+  if(!_sb||_rtPaused)return;
+  try{
+   const{data}=await _sb.from('uys_operator_notes').select('*').eq('okundu',false);
+   if(!data)return;
+   const mapped=data.map(r=>({id:r.id,opId:r.op_id,opAd:r.op_ad,tarih:r.tarih,saat:r.saat,mesaj:r.mesaj,okundu:!!r.okundu}));
+   const curIds=new Set((S.operatorNotes||[]).map(n=>n.id));
+   let yeni=false;
+   mapped.forEach(n=>{if(!curIds.has(n.id)){S.operatorNotes.push(n);yeni=true;}});
+   if(yeni){
+    _saveHashes['operatorNotes']=_qHash(JSON.stringify(S.operatorNotes||[]));
+    var cp=document.querySelector('.ni.active')?.dataset?.p;
+    if(cp==='dashboard')rDash();
+    updateBadges();
+    console.log('📩 Yeni mesaj alındı (poll)');
+   }
+  }catch(e){}
+ },15000);
 }
 // Atomik batch API — çakışmasız sunucu yazma
 async function apiBatch(ops){
@@ -15315,7 +15338,7 @@ function loginAdmin(){
  document.getElementById('app').style.display='';
  var hb=document.getElementById('hamburger-btn');if(hb)hb.style.display='';
  updateBadges();nav('dashboard');
- startRealtime();
+ startRealtime();startNotePoll();
 }
 
 function loginOprBolumDegisti(){
@@ -15362,7 +15385,7 @@ function loginOperator(){
  var hb2=document.getElementById('hamburger-btn');if(hb2)hb2.style.display='';
  // Operatör sadece üretim girişi görecek
  applyOperatorMode();
- startRealtime();
+ startRealtime();startNotePoll();
  nav('entry');
  // Operatör modunda direkt kendi bölümünü seç ve iş emirlerini yükle
  setTimeout(function(){
@@ -15404,7 +15427,7 @@ function loginMisafir(){
  document.getElementById('app').style.display='';
  var hb=document.getElementById('hamburger-btn');if(hb)hb.style.display='';
  applyGuestMode();
- startRealtime();
+ startRealtime();startNotePoll();
  updateBadges();nav('dashboard');
 }
 
