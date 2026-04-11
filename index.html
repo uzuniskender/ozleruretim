@@ -2247,7 +2247,8 @@ function nav(p){
  document.getElementById('p-'+p).classList.add('active');
  ({dashboard:rDash,orders:rOrders,workorders:rWO,entry:rEntry,warehouse:rWarehouse,
  bomtree:rBomTree,recipes:rRecipes,materials:rMalzYonetim,malzyonetim:rMalzYonetim,
- operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan})[p]?.();
+ operations:rOperations,stations:rStations,operators:rOperators,export:rExport,checklist:rChecklist,reports:rReports,tedarikciler:rTedarikciler,duruskodlari:rDurusKodlari,kesimplan:rKesimPlan,sevkiyat:function(){window._whTab='sevkiyat';rWarehouse();}})[p]?.();
+ if(p==='sevkiyat'){document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.p==='sevkiyat'));document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.getElementById('p-warehouse').classList.add('active');}
  updateBadges();
 }
 function updateBadges(){
@@ -2255,7 +2256,7 @@ function updateBadges(){
  try{
  const doneO=(S.orders||[]).filter(o=>ordPct(o.id)>=100).length;
  const el=id=>document.getElementById(id);
- if(el('nb-d'))el('nb-d').textContent=(S.orders||[]).length?`${doneO}/${(S.orders||[]).length}`:'—';
+ if(el('nb-d')){var _okunmamis=(S.operatorNotes||[]).filter(function(n){return !n.okundu;}).length;el('nb-d').textContent=(S.orders||[]).length?`${doneO}/${(S.orders||[]).length}`+(_okunmamis?' 📩'+_okunmamis:''):'—';}
  if(el('nb-o'))el('nb-o').textContent=(S.orders||[]).length;
  if(el('nb-w'))el('nb-w').textContent=(S.workOrders||[]).length;
  if(el('nb-wh'))el('nb-wh').textContent=(S.stokHareketler||[]).length;
@@ -2267,6 +2268,7 @@ function updateBadges(){
  if(el('nb-opr'))el('nb-opr').textContent=(S.operators||[]).length;
  if(el('nb-tdc'))el('nb-tdc').textContent=(S.tedarikciler||[]).length;
  if(el('nb-dks'))el('nb-dks').textContent=(S.durusKodlari||[]).length;
+ if(el('nb-svk'))el('nb-svk').textContent=(S.sevkler||[]).length;
  }catch(e){}
  try{
   var bdgKP=document.getElementById('bdg-kesimplan');
@@ -2318,6 +2320,8 @@ function runMigration(){
  if(!S.tedarikler)S.tedarikler=[];
  if(!S.userLog)S.userLog=[];
  if(!S.operators)S.operators=[];
+ if(!S.operatorNotes)S.operatorNotes=[];
+ if(!S.activeWork)S.activeWork=[];
  if(!S.bomTrees)S.bomTrees=[];
  if(!S.recipes)S.recipes=[];
  if(!S.consumption)S.consumption=[];
@@ -2636,6 +2640,8 @@ function rDash(){
     +kritik.map(function(w){var o=getOrd(w.orderId)||{};return '<span style="font-size:10px;padding:2px 8px;background:rgba(180,60,0,.1);color:var(--amber);border-radius:4px;font-family:var(--mono)" title="'+esc(o.siparisNo||'')+'">'+esc(w.ieNo)+'</span>';}).join('')
     +'</div>':'')+'</div>';
  })()+
+ _dashAktifCalismalar()+
+ _dashOperatorMesajlari()+
  '<div class="tw">'+
  '<div class="tt"><span style="font-weight:600">Aktif Siparişler</span></div>'+
  (aktifOrders.length?
@@ -2655,6 +2661,75 @@ function rDash(){
  '</tbody></table>':
  '<div class="empty"><p>Aktif sipariş yok</p></div>')+
  '</div>';
+}
+function _dashAktifCalismalar(){
+ var aw=(S.activeWork||[]).filter(function(a){return a.opId&&a.woId;});
+ if(!aw.length)return '';
+ var oprMap={};(S.operators||[]).forEach(function(o){oprMap[o.id]=o;});
+ var woMap={};(S.workOrders||[]).forEach(function(w){woMap[w.id]=w;});
+ var rows=aw.map(function(a){
+  var opr=oprMap[a.opId]||{};
+  var wo=woMap[a.woId]||{};
+  var sure='';
+  if(a.baslangic){
+   var b=a.baslangic.split(':');var now=new Date();
+   var bMin=parseInt(b[0])*60+parseInt(b[1]);
+   var nMin=now.getHours()*60+now.getMinutes();
+   var dk=nMin-bMin;if(dk<0)dk=0;
+   sure=dk>=60?Math.floor(dk/60)+'s '+dk%60+'dk':dk+'dk';
+  }
+  return '<tr>'
+   +'<td style="font-size:12px;font-weight:500">'+esc(a.opAd||opr.ad||'—')+'</td>'
+   +'<td style="font-family:var(--mono);font-size:11px;color:var(--ac)">'+esc(wo.ieNo||a.woId)+'</td>'
+   +'<td style="font-size:11px">'+esc(wo.malad||a.woAd||'—')+'</td>'
+   +'<td style="font-family:var(--mono);font-size:11px;color:var(--t2)">'+esc(a.baslangic||'—')+'</td>'
+   +'<td style="font-family:var(--mono);font-size:11px;color:var(--green)">'+sure+'</td>'
+   +'</tr>';
+ }).join('');
+ return '<div class="tw" style="margin-bottom:16px">'
+  +'<div class="tt"><span style="font-weight:600">🔧 Aktif Çalışmalar ('+aw.length+')</span>'
+  +'<button class="btn bs btn-xs" onclick="rDash()" style="margin-left:auto">↻ Yenile</button></div>'
+  +'<table><thead><tr><th>Operatör</th><th>İE No</th><th>Ürün</th><th>Başlangıç</th><th>Süre</th></tr></thead>'
+  +'<tbody>'+rows+'</tbody></table></div>';
+}
+function _dashOperatorMesajlari(){
+ if(!S.operatorNotes)S.operatorNotes=[];
+ var notlar=S.operatorNotes.slice().sort(function(a,b){return (b.tarih+b.saat)>(a.tarih+a.saat)?1:-1;});
+ var okunmamis=notlar.filter(function(n){return !n.okundu;}).length;
+ if(!notlar.length)return '';
+ var goster=notlar.slice(0,15);
+ var rows=goster.map(function(n){
+  return '<tr style="background:'+(n.okundu?'transparent':'rgba(59,130,246,.05)')+'">'
+   +'<td style="font-size:12px;font-weight:'+(n.okundu?'400':'600')+'">'+esc(n.opAd||'—')+'</td>'
+   +'<td style="font-family:var(--mono);font-size:10px;color:var(--t2);white-space:nowrap">'+esc(n.tarih||'')+' '+esc(n.saat||'')+'</td>'
+   +'<td style="font-size:12px;max-width:300px;word-break:break-word">'+esc(n.mesaj||'')+'</td>'
+   +'<td style="white-space:nowrap;text-align:right">'
+   +(!n.okundu?'<button class="btn bs btn-xs" onclick="mesajOkundu(\''+n.id+'\')">✓ Okundu</button> ':'<span style="font-size:9px;color:var(--t2)">okundu</span> ')
+   +'<button class="btn bd btn-xs" onclick="mesajSil(\''+n.id+'\')">Sil</button>'
+   +'</td></tr>';
+ }).join('');
+ return '<div class="tw" style="margin-bottom:16px">'
+  +'<div class="tt"><span style="font-weight:600">'+(okunmamis>0?'📩':'📬')+' Operatör Mesajları'+(okunmamis?' <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:8px;font-size:10px">'+okunmamis+' yeni</span>':'')+'</span>'
+  +'<div style="margin-left:auto;display:flex;gap:4px">'
+  +(okunmamis>0?'<button class="btn bs btn-xs" onclick="mesajTumunuOku()">Tümünü Okundu Yap</button>':'')
+  +'</div></div>'
+  +'<table><thead><tr><th>Operatör</th><th>Tarih/Saat</th><th>Mesaj</th><th></th></tr></thead>'
+  +'<tbody>'+rows+'</tbody></table>'
+  +(notlar.length>15?'<div style="text-align:center;padding:6px;font-size:11px;color:var(--t2)">+'+(notlar.length-15)+' daha eski mesaj</div>':'')
+  +'</div>';
+}
+async function mesajOkundu(nid){
+ var n=(S.operatorNotes||[]).find(function(x){return x.id===nid;});
+ if(n){n.okundu=true;await saveS();rDash();}
+}
+async function mesajTumunuOku(){
+ (S.operatorNotes||[]).forEach(function(n){n.okundu=true;});
+ await saveS();rDash();toast('Tüm mesajlar okundu olarak işaretlendi');
+}
+async function mesajSil(nid){
+ if(!confirm('Bu mesajı silmek istediğinize emin misiniz?'))return;
+ S.operatorNotes=(S.operatorNotes||[]).filter(function(x){return x.id!==nid;});
+ await saveS();rDash();toast('Mesaj silindi');
 }
 function rBomTree(){
  var el=document.getElementById('p-bomtree');if(!el)return;
@@ -4314,6 +4389,7 @@ function rOrders(){
  <button class="btn bs" onclick="exportSiparisExcel()">📥 Excel</button>
  <button class="btn bs" onclick="autoOncelik()" title="Terminlere göre otomatik öncelik">⚡ Otomatik Sırala</button>
  <button class="btn bp" onclick="showNewOrderModal()">+ Yeni Sipariş</button>
+ <label class="btn bs" style="cursor:pointer">📤 Toplu Yükle<input type="file" accept=".xlsx,.xls" style="display:none" onchange="topluSiparisYukle(event)"></label>
  </div></div>
  <div class="tw" style="margin-bottom:12px;overflow:visible"><div class="tt"><div class="fr">
  <input id="ord-q" placeholder="Sipariş no veya müşteri ara..." style="width:220px" oninput="filterOrders()">
@@ -4701,6 +4777,111 @@ async function _buildWOs(oid,sno,urunler,whAllocs){
  setTimeout(()=>toast(`⚠ ${noStWarnings.length} iş emrinde istasyon tanımlı değil — Reçete düzenleyerek atayabilirsiniz`),1500);
  }
 
+}
+// ═══════════════════════════════════════════════════════════
+// TOPLU SİPARİŞ GİRİŞİ (EXCEL)
+// ═══════════════════════════════════════════════════════════
+async function topluSiparisYukle(evt){
+ var file=evt.target.files[0];if(!file)return;
+ evt.target.value='';
+ var reader=new FileReader();
+ reader.onload=async function(e){
+  try{
+   var wb=XLSX.read(e.target.result,{type:'array'});
+   var ws=wb.Sheets[wb.SheetNames[0]];
+   var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+   if(rows.length<2){toast('Veri bulunamadı','err');return;}
+   var hdr=rows[0].map(function(h){return String(h).toLowerCase().replace(/ı/g,'i').replace(/ş/g,'s').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/ğ/g,'g').trim();});
+   var cSno=hdr.findIndex(function(h){return h.includes('siparis')&&h.includes('no');});
+   var cMst=hdr.findIndex(function(h){return h.includes('musteri')||h.includes('firma');});
+   var cTer=hdr.findIndex(function(h){return h.includes('termin');});
+   var cKod=hdr.findIndex(function(h){return (h.includes('urun')||h.includes('mamul')||h.includes('malzeme'))&&h.includes('kod');});
+   var cAd=hdr.findIndex(function(h){return (h.includes('urun')||h.includes('mamul'))&&h.includes('ad');});
+   var cAdet=hdr.findIndex(function(h){return h.includes('adet')||h.includes('miktar');});
+   if(cSno<0||cAdet<0){toast('Excel formatı uygun değil — "Sipariş No" ve "Adet" sütunları gerekli','err');return;}
+   // Satırları sipariş bazında grupla
+   var groups={};
+   for(var i=1;i<rows.length;i++){
+    var r=rows[i];
+    var sno=String(r[cSno]||'').trim();if(!sno)continue;
+    var mst=cMst>=0?String(r[cMst]||'').trim():'';
+    var ter=cTer>=0?_excelDate(r[cTer]):'';
+    var kod=cKod>=0?String(r[cKod]||'').trim():'';
+    var ad=cAd>=0?String(r[cAd]||'').trim():'';
+    var adet=parseInt(r[cAdet])||0;if(adet<=0)continue;
+    if(!groups[sno])groups[sno]={sno:sno,musteri:mst,termin:ter,urunler:[]};
+    if(!groups[sno].musteri&&mst)groups[sno].musteri=mst;
+    if(!groups[sno].termin&&ter)groups[sno].termin=ter;
+    // Reçete eşle
+    var rc=null;
+    if(kod)rc=(S.recipes||[]).find(function(r){return r.mamulKod===kod||r.rcKod===kod;});
+    if(!rc&&ad)rc=(S.recipes||[]).find(function(r){return (r.ad||'').toLowerCase()===ad.toLowerCase()||r.mamulKod===ad;});
+    groups[sno].urunler.push({mamulKod:kod||ad,mamulAd:ad||kod,adet:adet,rcId:rc?rc.id:null,rcBulundu:!!rc});
+   }
+   var keys=Object.keys(groups);if(!keys.length){toast('Geçerli sipariş satırı bulunamadı','err');return;}
+   // Önizleme modalı
+   var mevcutSay=0;var eslesmeyen=0;
+   keys.forEach(function(k){
+    if(S.orders.find(function(o){return o.siparisNo===groups[k].sno;}))mevcutSay++;
+    groups[k].urunler.forEach(function(u){if(!u.rcBulundu)eslesmeyen++;});
+   });
+   var prevRows=keys.slice(0,20).map(function(k){
+    var g=groups[k];var mevcut=S.orders.find(function(o){return o.siparisNo===g.sno;});
+    return '<tr style="'+(mevcut?'opacity:.4':'')+'">'
+     +'<td style="font-family:var(--mono);font-size:11px;color:var(--ac)">'+esc(g.sno)+(mevcut?' <span style="color:var(--red);font-size:9px">MEVCUT</span>':'')+'</td>'
+     +'<td style="font-size:11px">'+esc(g.musteri||'—')+'</td>'
+     +'<td style="font-family:var(--mono);font-size:11px">'+esc(g.termin||'—')+'</td>'
+     +'<td>'+g.urunler.map(function(u){return '<div style="font-size:10px;display:flex;gap:4px;align-items:center">'
+      +(u.rcBulundu?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--red)" title="Reçete bulunamadı">✗</span>')
+      +esc(u.mamulKod||u.mamulAd)+' × '+u.adet+'</div>';}).join('')+'</td></tr>';
+   }).join('');
+   showModal('<div class="md md-lg">'
+    +'<div class="mt">📤 Toplu Sipariş Önizleme</div>'
+    +'<div class="info-box" style="margin-bottom:10px">'+keys.length+' sipariş bulundu.'
+    +(mevcutSay?' <span style="color:var(--red)">'+mevcutSay+' tanesi zaten mevcut (atlanacak)</span>':'')
+    +(eslesmeyen?' · <span style="color:var(--amber)">'+eslesmeyen+' üründe reçete eşleşmedi (İE oluşturulamaz)</span>':'')
+    +'</div>'
+    +'<div style="max-height:50vh;overflow:auto"><table><thead><tr><th>Sipariş No</th><th>Müşteri</th><th>Termin</th><th>Ürünler</th></tr></thead><tbody>'+prevRows+'</tbody></table></div>'
+    +(keys.length>20?'<div style="font-size:11px;color:var(--t2);padding:6px">+'+(keys.length-20)+' daha...</div>':'')
+    +'<div class="mf"><button class="btn bs" onclick="closeModal()">İptal</button>'
+    +'<button class="btn bp" onclick="topluSiparisOlustur()">✓ '+(keys.length-mevcutSay)+' Sipariş Oluştur</button></div>'
+    +'</div>');
+   window._topluGroups=groups;
+  }catch(ex){toast('Excel okuma hatası: '+ex.message,'err');}
+ };
+ reader.readAsArrayBuffer(file);
+}
+function _excelDate(v){
+ if(!v)return '';
+ if(typeof v==='number'){var d=new Date((v-25569)*86400000);return d.toISOString().slice(0,10);}
+ var s=String(v).trim();
+ if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+ var m=s.match(/(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
+ if(m){var y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');}
+ return '';
+}
+async function topluSiparisOlustur(){
+ var groups=window._topluGroups;if(!groups)return;
+ closeModal();
+ var olusturulan=0;var atlanan=0;var ieSay=0;
+ for(var sno of Object.keys(groups)){
+  var g=groups[sno];
+  if(S.orders.find(function(o){return o.siparisNo===g.sno;})){atlanan++;continue;}
+  var urunler=g.urunler.filter(function(u){return u.rcBulundu;}).map(function(u){return {rcId:u.rcId,mamulKod:u.mamulKod,mamulAd:u.mamulAd,adet:u.adet};});
+  var tumUrunler=g.urunler.map(function(u){return {rcId:u.rcId,mamulKod:u.mamulKod,mamulAd:u.mamulAd,adet:u.adet};});
+  var oid=uid();
+  S.orders.push({id:oid,siparisNo:g.sno,musteri:g.musteri,tarih:today(),termin:g.termin,not:'Toplu Excel yükleme',
+   urunler:tumUrunler,mamulKod:tumUrunler[0]?.mamulKod||'',mamulAd:tumUrunler[0]?.mamulAd||'',
+   adet:tumUrunler[0]?.adet||1,receteId:tumUrunler[0]?.rcId||'',olusturma:today()});
+  if(urunler.length){
+   var woCount=await _buildWOs(oid,g.sno,urunler,{});
+   ieSay+=(typeof woCount==='number'?woCount:urunler.length);
+  }
+  olusturulan++;
+ }
+ delete window._topluGroups;
+ await saveS();rOrders();
+ toast(olusturulan+' sipariş oluşturuldu'+(atlanan?' ('+atlanan+' mevcut atlandı)':''));
 }
 // ═══════════════════════════════════════════════════════════
 // OTOMATİK ZİNCİR: Sipariş → Kesim Planı → MRP → Tedarik
@@ -8848,8 +9029,45 @@ async function saveEntryLog(wid){
  if(stokSonuc.uyarilar.length){msg+='\n⚠ Stok Uyardı:\n'+stokSonuc.uyarilar.join('\n');toast(msg,'warn');}
  else toast(msg,_tamam2?'ok':undefined);
  filterEntryIEs();updateBadges();
+ // Fire → Sipariş dışı İE teklifi
+ if(fireQty>0){
+  setTimeout(function(){
+   _fireIETeklif(wid,fireQty);
+  },600);
+ }
  // Artık malzeme kontrolü
  rbKontrolArtik(wid,qty);
+}
+function _fireIETeklif(woId,fireQty){
+ var w=getWO(woId);if(!w)return;
+ showModal('<div class="md md-sm">'
+  +'<div class="mt" style="color:var(--amber)">🔥 Fire Telafi İş Emri</div>'
+  +'<div style="font-size:13px;padding:10px 0">'
+  +'<strong>'+esc(w.malad||w.malkod)+'</strong> için <strong>'+fireQty+'</strong> adet fire kaydedildi.<br><br>'
+  +'Telafi üretimi için sipariş dışı iş emri açılsın mı?</div>'
+  +'<div style="margin-bottom:8px"><label class="lbl">Telafi adedi</label>'
+  +'<input type="number" id="fire-ie-adet" value="'+fireQty+'" min="1" style="width:100px"></div>'
+  +'<div class="mf">'
+  +'<button class="btn bs" onclick="closeModal()">Hayır</button>'
+  +'<button class="btn bp" onclick="fireIEOlustur(\''+woId+'\',parseInt(document.getElementById(\'fire-ie-adet\').value)||'+fireQty+')">Evet, İE Aç</button>'
+  +'</div></div>');
+}
+async function fireIEOlustur(woId,adet){
+ var w=getWO(woId);if(!w){closeModal();return;}
+ var ieNo='FIRE-'+w.ieNo+'-'+today().replace(/-/g,'').slice(4);
+ var nw={
+  id:uid(),ieNo:ieNo,malkod:w.malkod,malad:w.malad,
+  opId:w.opId,opAd:w.opAd,istId:w.istId,istAd:w.istAd,
+  hedef:adet,durum:'bekliyor',
+  orderId:null,bagimsiz:true,siparisDisi:true,
+  rcId:w.rcId,kirno:w.kirno,hm:w.hm?JSON.parse(JSON.stringify(w.hm)):null,
+  not:'Fire telafi – kaynak İE: '+w.ieNo+' ('+adet+' adet)',
+  olusturma:today()
+ };
+ S.workOrders.push(nw);
+ await saveS();closeModal();
+ toast('Telafi İE oluşturuldu: '+ieNo);
+ filterEntryIEs();updateBadges();
 }
 function rRepDurus(){
  var el=document.getElementById('rep-content');if(!el)return;

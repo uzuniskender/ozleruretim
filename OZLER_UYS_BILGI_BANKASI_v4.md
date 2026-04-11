@@ -108,6 +108,15 @@ ozleruretim/
 
 ## 6. VERSİYON GEÇMİŞİ
 
+### v22-online-auth-s5 (2026-04-11 oturum 5)
+- Operatör Mesajları Paneli: Dashboard'da okunmamış mesajlar tablosu, tek/toplu okundu işaretle, silme
+- activeWork Canlı Takip: Dashboard'da hangi operatör hangi İE'de çalışıyor, süre hesabı
+- Toplu Sipariş Girişi (Excel): Siparişler sayfasında "📤 Toplu Yükle", reçete otomatik eşleme, önizleme, mevcut atlama, İE otomatik oluşturma
+- İstek #18: Fire → sipariş dışı İE teklifi (fire kaydı sonrası telafi İE açma modalı, FIRE- prefix, bagimsiz+siparisDisi flag)
+- İstek #19: MRP stoktan ver — zaten mevcut (stok + açık tedarik brütten düşülüyor, net ihtiyaç hesaplanıyor)
+- Sevkiyat nav fix: sidebar linki warehouse/sevkiyat sekmesine yönleniyor + badge güncelleme
+- Dashboard badge: okunmamış mesaj sayısı 📩 göstergesi
+
 ### v22-online-auth-s4 (2026-04-11)
 - Stok onarım fonksiyonu (stokOnar): eksik stok hareketlerini loglardan geriye dönük oluşturur
 - syncKesimPlanlar artık oluşturduğunda otomatik saveS()
@@ -168,16 +177,16 @@ ozleruretim/
 - [x] Kesim planı: fire optimize, öneriler otomatik uygulanmış
 - [x] Tedarik listesinde sipariş eşleme (autoTedarikOlustur)
 - [x] Üst bar durum göstergeleri: Kesim (🔴/🟢) | MRP (🔴/🟢) | Tedarik (🔴/🟢)
-- [ ] Kesim planı: yeni sipariş gelince mevcut planı güncelle/birleştir (mevcut: yeni plan oluşturuyor)
+- [x] Kesim planı: yeni sipariş gelince mevcut planı güncelle/birleştir (zaten mevcut — mevcutPlan check)
 
 ### Diğer
 - [ ] Normalize veri geçişi (tek JSON → ayrı tablolar)
 - [ ] Realtime senkronizasyon
-- [ ] Yönetici: operatör mesajları paneli
-- [ ] Yönetici: activeWork canlı takip
+- [x] Yönetici: operatör mesajları paneli
+- [x] Yönetici: activeWork canlı takip
 - [ ] Misafir girişi (read-only)
-- [ ] Toplu sipariş girişi (Excel)
+- [x] Toplu sipariş girişi (Excel)
 - [ ] islemSure reçeteye girilmeli
-- [ ] İstek #18: Fire → sipariş dışı iş emri
-- [ ] İstek #19: MRP stoktan ver
+- [x] İstek #18: Fire → sipariş dışı iş emri
+- [x] İstek #19: MRP stoktan ver (zaten mevcut)
 - [ ] Repo Private yapma
