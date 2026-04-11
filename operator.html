@@ -224,10 +224,35 @@ async function loadData(){
   if(!S.operatorNotes)S.operatorNotes=[];
   if(!S.activeWork)S.activeWork=[];
   populateLogin();populateFilters();render();updateActiveBar();
+  startRealtime();
+}
+// ═══ REALTIME SYNC ═══
+let _rtCh=null,_rtPause=false;
+function startRealtime(){
+ if(!sb)return;
+ if(_rtCh){sb.removeChannel(_rtCh);_rtCh=null;}
+ _rtCh=sb.channel('opr-realtime');
+ ['uys_work_orders','uys_logs','uys_orders','uys_operator_notes','uys_active_work'].forEach(t=>{
+  _rtCh.on('postgres_changes',{event:'*',schema:'public',table:t},payload=>{
+   if(_rtPause)return;
+   console.log('🔄 RT:',t,payload.eventType);
+   clearTimeout(window._rtReload);
+   window._rtReload=setTimeout(()=>{_rtReloadData();},1500);
+  });
+ });
+ _rtCh.subscribe(st=>{if(st==='SUBSCRIBED')console.log('✅ Operatör Realtime aktif');});
+}
+async function _rtReloadData(){
+ try{
+  const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
+  if(!error&&data?.value){S=Object.assign({},S,JSON.parse(data.value));if(!S.operatorNotes)S.operatorNotes=[];if(!S.activeWork)S.activeWork=[];render();updateActiveBar();console.log('🔄 Veri güncellendi');}
+ }catch(e){}
 }
 async function saveData(){
+  _rtPause=true;
   const j=JSON.stringify(S);try{localStorage.setItem('uys_data',j);}catch(e){}
   try{await sb.from('ayarlar').upsert({key:'uys_data',value:j});showToast('Kaydedildi ✓','ok');}catch(e){showToast('Kayıt hatası!','err');}
+  setTimeout(()=>{_rtPause=false;},2000);
 }
 function setSync(on){document.getElementById('syncDot').className='dot '+(on?'on':'off');document.getElementById('syncTxt').textContent=on?'Bağlı':'Çevrimdışı';}
 

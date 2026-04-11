@@ -33,6 +33,7 @@
 | Frontend | GitHub Pages statik hosting |
 | Backend | Supabase PostgreSQL (Frankfurt NANO) |
 | Veri | `ayarlar` tablosu key-value (uys_data=JSON) + 23 normalize tablo (Faz 2 hibrit) |
+| Realtime | Supabase Realtime subscription (10 tablo, INSERT/UPDATE/DELETE) |
 | Auth | Supabase Auth + RLS (2 kullanıcı: admin gmail, operatör servis) |
 | Yedekleme | Otomatik günlük, 30 gün saklama |
 
@@ -107,6 +108,13 @@ ozleruretim/
 ---
 
 ## 6. VERSİYON GEÇMİŞİ
+
+### v22-online-auth-s7 (2026-04-11 oturum 7)
+- Realtime Sync: Supabase Realtime subscription, 10 kritik tablo (logs, workOrders, orders, stokHareketler, operatorNotes, activeWork, fireLogs, tedarikler, sevkler, kesimPlanlari)
+- index.html: INSERT/UPDATE/DELETE eventleri → S dizilerine anında yansır, aktif sayfa otomatik yenilenir (debounce 800ms)
+- operator.html: Realtime event → JSON blob reload → render (debounce 1500ms)
+- _rtPaused: saveS/saveData sırasında 2sn kendi eventlerini yoksayar (echo prevention)
+- realtime_enable.sql: Supabase publication'a 10 tablo ekleme
 
 ### v22-online-auth-s6 (2026-04-11 oturum 6)
 - Normalize Faz 1: 23 Supabase tablosu oluşturuldu (supabase_normalize.sql), migration aracı (normalize.html) ile veri taşındı
@@ -189,7 +197,7 @@ ozleruretim/
 
 ### Diğer
 - [x] Normalize veri geçişi (Faz 1: tablolar + migration, Faz 2: loadS/saveS hibrit)
-- [ ] Realtime senkronizasyon (Faz 3: Supabase Realtime subscription)
+- [x] Realtime senkronizasyon (Supabase Realtime subscription, 10 tablo)
 - [x] Yönetici: operatör mesajları paneli
 - [x] Yönetici: activeWork canlı takip
 - [ ] Misafir girişi (read-only)

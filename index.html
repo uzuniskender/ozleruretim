@@ -818,6 +818,78 @@ async function _saveToTables(){
   try{await _sb.from('uys_ayarlar').upsert({key:'ayarlar',value:S.ayarlar});}catch(e){}
  }
 }
+// ═══ REALTIME SYNC ═══
+let _rtChannel=null;
+let _rtPaused=false; // saveS sırasında kendi eventlerimizi yoksay
+const _RT_TABLES=[
+ {t:'uys_logs',k:'logs'},
+ {t:'uys_work_orders',k:'workOrders'},
+ {t:'uys_orders',k:'orders'},
+ {t:'uys_stok_hareketler',k:'stokHareketler'},
+ {t:'uys_operator_notes',k:'operatorNotes'},
+ {t:'uys_active_work',k:'activeWork'},
+ {t:'uys_fire_logs',k:'fireLogs'},
+ {t:'uys_tedarikler',k:'tedarikler'},
+ {t:'uys_sevkler',k:'sevkler'},
+ {t:'uys_kesim_planlari',k:'kesimPlanlari'},
+];
+function _rtToS(table,row){
+ const tm=_TM.find(t=>t.t===table);
+ return tm?tm.toS(row):row;
+}
+function _rtApply(table,eventType,newRow,oldRow){
+ const rt=_RT_TABLES.find(r=>r.t===table);
+ if(!rt)return;
+ const arr=S[rt.k];if(!arr)return;
+ const mapped=newRow?_rtToS(table,newRow):null;
+ if(eventType==='INSERT'&&mapped){
+  if(!arr.find(r=>r.id===mapped.id))arr.push(mapped);
+ } else if(eventType==='UPDATE'&&mapped){
+  const idx=arr.findIndex(r=>r.id===mapped.id);
+  if(idx>=0)arr[idx]=mapped;else arr.push(mapped);
+ } else if(eventType==='DELETE'&&oldRow){
+  const delId=oldRow.id;
+  const idx=arr.findIndex(r=>r.id===delId);
+  if(idx>=0)arr.splice(idx,1);
+ }
+ // Hash güncelle (kendi save'imizde tekrar yazmasın)
+ _saveHashes[rt.k]=_qHash(JSON.stringify(S[rt.k]||[]));
+}
+let _rtRefreshTimer=null;
+function _rtRefreshUI(){
+ clearTimeout(_rtRefreshTimer);
+ _rtRefreshTimer=setTimeout(function(){
+  try{
+   var curPage=document.querySelector('.ni.active')?.dataset?.p||'dashboard';
+   ({dashboard:rDash,orders:rOrders,workorders:rWO,entry:rEntry,warehouse:rWarehouse,
+    kesimplan:rKesimPlan,reports:rReports})[curPage]?.();
+   updateBadges();
+  }catch(e){}
+ },800);
+}
+function startRealtime(){
+ if(!_sb||_isLocal)return;
+ if(_rtChannel){_sb.removeChannel(_rtChannel);_rtChannel=null;}
+ _rtChannel=_sb.channel('uys-realtime');
+ _RT_TABLES.forEach(function(rt){
+  _rtChannel.on('postgres_changes',
+   {event:'*',schema:'public',table:rt.t},
+   function(payload){
+    if(_rtPaused)return;
+    console.log('🔄 RT:',rt.t,payload.eventType,payload.new?.id||payload.old?.id||'');
+    _rtApply(rt.t,payload.eventType,payload.new,payload.old);
+    _rtRefreshUI();
+   }
+  );
+ });
+ _rtChannel.subscribe(function(status){
+  if(status==='SUBSCRIBED')console.log('✅ Realtime aktif ('+_RT_TABLES.length+' tablo)');
+  else if(status==='CHANNEL_ERROR')console.warn('⚠ Realtime bağlantı hatası');
+ });
+}
+function stopRealtime(){
+ if(_rtChannel&&_sb){_sb.removeChannel(_rtChannel);_rtChannel=null;}
+}
 // Atomik batch API — çakışmasız sunucu yazma
 async function apiBatch(ops){
  if(!_apiBase)return false;
@@ -2552,7 +2624,8 @@ async function saveS(){
   console.log('saveS:',kb,'KB');
   await store.set(SK,json);
   // ═══ NORMALIZE: Tablolara da yaz (arka plan) ═══
-  _saveToTables().catch(e=>console.warn('Table sync:',e.message));
+  _rtPaused=true;
+  _saveToTables().catch(e=>console.warn('Table sync:',e.message)).finally(()=>{setTimeout(()=>{_rtPaused=false;},2000);});
   // ═══ OTOMATİK GÜNLÜK YEDEK ═══
   autoBackup(json);
  }catch(e){
@@ -15242,6 +15315,7 @@ function loginAdmin(){
  document.getElementById('app').style.display='';
  var hb=document.getElementById('hamburger-btn');if(hb)hb.style.display='';
  updateBadges();nav('dashboard');
+ startRealtime();
 }
 
 function loginOprBolumDegisti(){
@@ -15288,6 +15362,7 @@ function loginOperator(){
  var hb2=document.getElementById('hamburger-btn');if(hb2)hb2.style.display='';
  // Operatör sadece üretim girişi görecek
  applyOperatorMode();
+ startRealtime();
  nav('entry');
  // Operatör modunda direkt kendi bölümünü seç ve iş emirlerini yükle
  setTimeout(function(){
@@ -15329,6 +15404,7 @@ function loginMisafir(){
  document.getElementById('app').style.display='';
  var hb=document.getElementById('hamburger-btn');if(hb)hb.style.display='';
  applyGuestMode();
+ startRealtime();
  updateBadges();nav('dashboard');
 }
 
