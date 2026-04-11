@@ -130,7 +130,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-he
   <div class="logo">⚙</div>
   <h1>ÖZLER ÜRETİM</h1>
   <p>Operatör girişi</p>
-  <select id="loginOp"><option value="">Operatör seçin...</option></select>
+  <select id="loginBolum" onchange="loginBolumDegisti()"><option value="">Bölüm seçin...</option></select>
+  <select id="loginOp" style="display:none"><option value="">Operatör seçin...</option></select>
   <input type="password" id="loginPass" placeholder="Şifre (sicil no)" inputmode="numeric">
   <button class="btn primary" onclick="doLogin()" style="max-width:320px;margin-top:6px">GİRİŞ YAP</button>
   <div id="loginErr" style="color:var(--err);font-size:11px;margin-top:6px"></div>
@@ -232,9 +233,20 @@ function setSync(on){document.getElementById('syncDot').className='dot '+(on?'on
 
 // === LOGIN (#1: alphabetical) ===
 function populateLogin(){
-  const s=document.getElementById('loginOp');s.innerHTML='<option value="">Operatör seçin...</option>';
-  const sorted=(S.operators||[]).filter(o=>o.aktif!==false).sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
+  const bs=document.getElementById('loginBolum');bs.innerHTML='<option value="">Bölüm seçin...</option>';
+  const bolumler=[...new Set((S.operators||[]).filter(o=>o.aktif!==false&&o.bolum).map(o=>o.bolum))].sort((a,b)=>a.localeCompare(b,'tr'));
+  bolumler.forEach(b=>{bs.innerHTML+=`<option value="${b}">${b}</option>`;});
+  document.getElementById('loginOp').style.display='none';
+  document.getElementById('loginOp').innerHTML='<option value="">Operatör seçin...</option>';
+}
+function loginBolumDegisti(){
+  const bolum=document.getElementById('loginBolum').value;
+  const s=document.getElementById('loginOp');
+  if(!bolum){s.style.display='none';s.innerHTML='<option value="">Operatör seçin...</option>';return;}
+  const sorted=(S.operators||[]).filter(o=>o.aktif!==false&&(o.bolum||'')===bolum).sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
+  s.innerHTML='<option value="">Operatör seçin ('+sorted.length+')...</option>';
   sorted.forEach(o=>{s.innerHTML+=`<option value="${o.id}">${o.ad}${o.sicil?' ('+o.sicil+')':''}</option>`;});
+  s.style.display='block';
 }
 function doLogin(){
   const opId=document.getElementById('loginOp').value,pass=document.getElementById('loginPass').value,err=document.getElementById('loginErr');
