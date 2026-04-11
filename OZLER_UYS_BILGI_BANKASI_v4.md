@@ -109,6 +109,11 @@ ozleruretim/
 
 ## 6. VERSİYON GEÇMİŞİ
 
+### v22-online-auth-s8 (2026-04-12)
+- operator.html normalize: tablolardan okuma (loadData), tablolara yazma (saveData), JSON blob fallback korunuyor
+- operator.html realtime: tablolardan reload (_rtReloadFromTables) — JSON blob'a bağımlılık kaldırıldı
+- _WRITE_TABLES: operatörün yazdığı 5 tablo (logs, stokHareketler, fireLogs, operatorNotes, activeWork)
+
 ### v22-online-auth-s7 (2026-04-11 oturum 7)
 - Realtime Sync: Supabase Realtime subscription, 10 kritik tablo (logs, workOrders, orders, stokHareketler, operatorNotes, activeWork, fireLogs, tedarikler, sevkler, kesimPlanlari)
 - index.html: INSERT/UPDATE/DELETE eventleri → S dizilerine anında yansır, aktif sayfa otomatik yenilenir (debounce 800ms)

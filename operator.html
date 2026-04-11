@@ -217,10 +217,59 @@ let _curTab='uretim',_curWO=null,_curUser=null,_fireVisible=false;
 const HIDE_DAYS=3;
 
 // === DATA ===
+// ═══ TABLE MAP (snake_case → camelCase) ═══
+const _TM=[
+ {k:'operations',t:'uys_operations',toS:r=>({id:r.id,kod:r.kod,ad:r.ad})},
+ {k:'stations',t:'uys_stations',toS:r=>({id:r.id,kod:r.kod,ad:r.ad,opIds:r.op_ids||[]})},
+ {k:'malzemeler',t:'uys_malzemeler',toS:r=>({id:r.id,kod:r.kod,ad:r.ad,tip:r.tip,birim:r.birim,boy:r.boy||0,en:r.en||0,kalinlik:r.kalinlik||0,cap:r.cap||0,icCap:r.ic_cap||0,minStok:r.min_stok||0,opId:r.op_id,opKod:r.op_kod})},
+ {k:'bomTrees',t:'uys_bom_trees',toS:r=>({id:r.id,mamulKod:r.mamul_kod,mamulAd:r.mamul_ad,ad:r.ad,rows:r.rows||[]})},
+ {k:'recipes',t:'uys_recipes',toS:r=>({id:r.id,rcKod:r.rc_kod,ad:r.ad,bomId:r.bom_id,mamulKod:r.mamul_kod,mamulAd:r.mamul_ad,satirlar:r.satirlar||[]})},
+ {k:'orders',t:'uys_orders',toS:r=>({id:r.id,siparisNo:r.siparis_no,musteri:r.musteri,tarih:r.tarih,termin:r.termin,not:r.not_,urunler:r.urunler||[],mamulKod:r.mamul_kod,mamulAd:r.mamul_ad,adet:r.adet||1,receteId:r.recete_id,mrpDurum:r.mrp_durum,durum:r.durum,oncelik:r.oncelik||0,olusturma:r.olusturma})},
+ {k:'workOrders',t:'uys_work_orders',
+  toS:r=>({id:r.id,orderId:r.order_id,rcId:r.rc_id,sira:r.sira||0,kirno:r.kirno,opId:r.op_id,opKod:r.op_kod,opAd:r.op_ad,istId:r.ist_id,istKod:r.ist_kod,istAd:r.ist_ad,malkod:r.malkod,malad:r.malad,hedef:r.hedef||0,mpm:r.mpm||1,hm:r.hm||[],ieNo:r.ie_no,whAlloc:r.wh_alloc||0,hazirlikSure:r.hazirlik_sure||0,islemSure:r.islem_sure||0,durum:r.durum,bagimsiz:!!r.bagimsiz,siparisDisi:!!r.siparis_disi,mamulKod:r.mamul_kod,mamulAd:r.mamul_ad,mamulAuto:!!r.mamul_auto,operatorId:r.operator_id,not:r.not_,olusturma:r.olusturma})},
+ {k:'logs',t:'uys_logs',
+  toS:r=>({id:r.id,woId:r.wo_id,tarih:r.tarih,qty:r.qty||0,fire:r.fire||0,operatorlar:r.operatorlar||[],duruslar:r.duruslar||[],not:r.not_,malkod:r.malkod,ieNo:r.ie_no,operatorId:r.operator_id,vardiya:r.vardiya}),
+  toR:r=>({id:r.id,wo_id:r.woId,tarih:r.tarih,qty:r.qty||0,fire:r.fire||0,operatorlar:r.operatorlar||[],duruslar:r.duruslar||[],not_:r.not,malkod:r.malkod,ie_no:r.ieNo,operator_id:r.operatorId,vardiya:r.vardiya})},
+ {k:'operators',t:'uys_operators',toS:r=>({id:r.id,kod:r.kod,ad:r.ad,bolum:r.bolum,aktif:r.aktif!==false,sifre:r.sifre})},
+ {k:'stokHareketler',t:'uys_stok_hareketler',
+  toS:r=>({id:r.id,tarih:r.tarih,malkod:r.malkod,malad:r.malad,miktar:r.miktar||0,tip:r.tip,logId:r.log_id,woId:r.wo_id,aciklama:r.aciklama}),
+  toR:r=>({id:r.id,tarih:r.tarih,malkod:r.malkod,malad:r.malad,miktar:r.miktar||0,tip:r.tip,log_id:r.logId,wo_id:r.woId,aciklama:r.aciklama})},
+ {k:'fireLogs',t:'uys_fire_logs',
+  toS:r=>({id:r.id,logId:r.log_id,woId:r.wo_id,tarih:r.tarih,malkod:r.malkod,malad:r.malad,qty:r.qty||0,ieNo:r.ie_no,opAd:r.op_ad,operatorlar:r.operatorlar||[],not:r.not_}),
+  toR:r=>({id:r.id,log_id:r.logId,wo_id:r.woId,tarih:r.tarih,malkod:r.malkod,malad:r.malad,qty:r.qty||0,ie_no:r.ieNo,op_ad:r.opAd,operatorlar:r.operatorlar||[],not_:r.not})},
+ {k:'durusKodlari',t:'uys_durus_kodlari',toS:r=>({id:r.id,kod:r.kod,ad:r.ad,kategori:r.kategori})},
+ {k:'kesimPlanlari',t:'uys_kesim_planlari',
+  toS:r=>({id:r.id,hamMalkod:r.ham_malkod,hamMalad:r.ham_malad,hamBoy:r.ham_boy||0,hamEn:r.ham_en||0,kesimTip:r.kesim_tip,durum:r.durum,satirlar:r.satirlar||[],tarih:r.tarih,gerekliAdet:r.gerekli_adet||0})},
+ {k:'operatorNotes',t:'uys_operator_notes',
+  toS:r=>({id:r.id,opId:r.op_id,opAd:r.op_ad,tarih:r.tarih,saat:r.saat,mesaj:r.mesaj,okundu:!!r.okundu}),
+  toR:r=>({id:r.id,op_id:r.opId,op_ad:r.opAd,tarih:r.tarih,saat:r.saat,mesaj:r.mesaj,okundu:!!r.okundu})},
+ {k:'activeWork',t:'uys_active_work',
+  toS:r=>({id:r.id,opId:r.op_id,opAd:r.op_ad,woId:r.wo_id,woAd:r.wo_ad,baslangic:r.baslangic,tarih:r.tarih}),
+  toR:r=>({id:r.id||String(Date.now()),op_id:r.opId,op_ad:r.opAd,wo_id:r.woId,wo_ad:r.woAd,baslangic:r.baslangic,tarih:r.tarih})},
+ {k:'tedarikler',t:'uys_tedarikler',toS:r=>({id:r.id,malkod:r.malkod,malad:r.malad,miktar:r.miktar||0,birim:r.birim,orderId:r.order_id,siparisNo:r.siparis_no,durum:r.durum,geldi:!!r.geldi,teslimTarihi:r.teslim_tarihi,tedarikcId:r.tedarikci_id,tedarikcAd:r.tedarikci_ad,not:r.not_,tarih:r.tarih})},
+ {k:'tedarikciler',t:'uys_tedarikciler',toS:r=>({id:r.id,kod:r.kod,ad:r.ad,adres:r.adres,tel:r.tel,email:r.email,not:r.not_})},
+ {k:'customers',t:'uys_customers',toS:r=>({id:r.id,ad:r.ad,kod:r.kod})},
+ {k:'sevkler',t:'uys_sevkler',toS:r=>({id:r.id,orderId:r.order_id,siparisNo:r.siparis_no,musteri:r.musteri,tarih:r.tarih,kalemler:r.kalemler||[],not:r.not_})},
+];
+const _WRITE_TABLES=['uys_logs','uys_stok_hareketler','uys_fire_logs','uys_operator_notes','uys_active_work'];
+
 async function loadData(){
   await ensureAuth();
-  try{const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();if(error)throw error;if(data?.value){S=Object.assign({},S,JSON.parse(data.value));setSync(true);}}
-  catch(e){try{const lv=localStorage.getItem('uys_data');if(lv)S=Object.assign({},S,JSON.parse(lv));setSync(false);}catch(e2){}}
+  let tableOk=false;
+  try{
+   const results=await Promise.all(_TM.map(t=>sb.from(t.t).select('*')));
+   let ok=0;
+   for(let i=0;i<_TM.length;i++){
+    const t=_TM[i],res=results[i];
+    if(res.error)continue;
+    S[t.k]=(res.data||[]).map(t.toS);ok++;
+   }
+   if(ok>=5){tableOk=true;setSync(true);console.log('✅ Tablolardan yüklendi ('+ok+'/'+_TM.length+')');}
+  }catch(e){}
+  if(!tableOk){
+   try{const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();if(!error&&data?.value){S=Object.assign({},S,JSON.parse(data.value));setSync(true);}}
+   catch(e){try{const lv=localStorage.getItem('uys_data');if(lv)S=Object.assign({},S,JSON.parse(lv));setSync(false);}catch(e2){}}
+  }
   if(!S.operatorNotes)S.operatorNotes=[];
   if(!S.activeWork)S.activeWork=[];
   populateLogin();populateFilters();render();updateActiveBar();
@@ -237,21 +286,36 @@ function startRealtime(){
    if(_rtPause)return;
    console.log('🔄 RT:',t,payload.eventType);
    clearTimeout(window._rtReload);
-   window._rtReload=setTimeout(()=>{_rtReloadData();},1500);
+   window._rtReload=setTimeout(()=>{_rtReloadFromTables();},1500);
   });
  });
  _rtCh.subscribe(st=>{if(st==='SUBSCRIBED')console.log('✅ Operatör Realtime aktif');});
 }
-async function _rtReloadData(){
+async function _rtReloadFromTables(){
  try{
-  const{data,error}=await sb.from('ayarlar').select('value').eq('key','uys_data').single();
-  if(!error&&data?.value){S=Object.assign({},S,JSON.parse(data.value));if(!S.operatorNotes)S.operatorNotes=[];if(!S.activeWork)S.activeWork=[];render();updateActiveBar();console.log('🔄 Veri güncellendi');}
+  const rtTables=['uys_work_orders','uys_logs','uys_orders','uys_operator_notes','uys_active_work'];
+  const results=await Promise.all(rtTables.map(t=>sb.from(t).select('*')));
+  rtTables.forEach((t,i)=>{
+   const tm=_TM.find(x=>x.t===t);
+   if(tm&&!results[i].error)S[tm.k]=(results[i].data||[]).map(tm.toS);
+  });
+  render();updateActiveBar();console.log('🔄 Veri güncellendi');
  }catch(e){}
 }
 async function saveData(){
   _rtPause=true;
   const j=JSON.stringify(S);try{localStorage.setItem('uys_data',j);}catch(e){}
-  try{await sb.from('ayarlar').upsert({key:'uys_data',value:j});showToast('Kaydedildi ✓','ok');}catch(e){showToast('Kayıt hatası!','err');}
+  // JSON blob (uyumluluk)
+  try{await sb.from('ayarlar').upsert({key:'uys_data',value:j});}catch(e){}
+  // Normalize tablolara yaz
+  for(const tName of _WRITE_TABLES){
+   const tm=_TM.find(t=>t.t===tName);
+   if(!tm||!tm.toR)continue;
+   const arr=(S[tm.k]||[]).filter(r=>r&&r.id);
+   const rows=arr.map(tm.toR);
+   try{if(rows.length){for(let i=0;i<rows.length;i+=500){await sb.from(tName).upsert(rows.slice(i,i+500),{onConflict:'id'});}}}catch(e){}
+  }
+  showToast('Kaydedildi ✓','ok');
   setTimeout(()=>{_rtPause=false;},2000);
 }
 function setSync(on){document.getElementById('syncDot').className='dot '+(on?'on':'off');document.getElementById('syncTxt').textContent=on?'Bağlı':'Çevrimdışı';}
