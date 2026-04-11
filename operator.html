@@ -172,7 +172,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);min-he
   <div id="modalInfo"></div>
   <!-- #7: Manager note -->
   <div id="mgrNoteArea"></div>
-  <div class="sec-title">📦 Hammadde / Stok</div>
+  <div class="sec-title">📦 Hammadde / Stok <span style="font-size:9px;font-weight:400;color:var(--t3);margin-left:6px">(stok / ihtiyaç)</span></div>
   <div id="modalStok"></div>
   <div class="sec-title">👷 Operatörler & Çalışma Aralıkları</div>
   <div id="opEntries"></div>
@@ -511,7 +511,12 @@ function openWO(wid){
   document.getElementById('mgrNoteArea').innerHTML=(mNote?`<div class="mgr-note" style="margin:6px 0">📌 Yönetici Notu: ${mNote}</div>`:'')+startHtml;
   // Stok
   let sh='';
-  if(sd.items.length){sd.items.forEach(i=>{const c=i.stk<=0?'s-yok':i.stk>=i.needed?'s-ok':'s-bek';sh+=`<div class="stok-row"><span>${i.malad||i.malkod}</span><span class="${c}">${i.stk}/${i.needed}</span></div>`;});}else sh='<div style="font-size:10px;color:var(--t3)">Bilgi yok</div>';
+  if(sd.items.length){sd.items.forEach(i=>{
+   const kalan=Math.max(0,(w.hedef||0)-prod);
+   const ihtiyac=Math.ceil(i.needed*kalan/(w.hedef||1));
+   const c=i.stk<=0?'s-yok':i.stk>=ihtiyac?'s-ok':'s-bek';
+   sh+=`<div class="stok-row"><span>${(i.malad||i.malkod).slice(0,45)}</span><span class="${c}">${Math.round(i.stk)}/${ihtiyac}</span></div>`;
+  });}else sh='<div style="font-size:10px;color:var(--t3)">Bilgi yok</div>';
   document.getElementById('modalStok').innerHTML=sh;
   // Operators
   document.getElementById('opEntries').innerHTML='';addOpEntry();
