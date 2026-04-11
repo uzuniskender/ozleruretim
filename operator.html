@@ -367,7 +367,7 @@ function getFilteredWOs(){
 // === HELPERS ===
 function getProduced(w){return(S.logs||[]).filter(l=>l.woId===w.id).reduce((s,l)=>s+(l.qty||0),0);}
 function getWPct(w){return(!w.hedef||w.hedef<=0)?0:Math.min(100,getProduced(w)/w.hedef*100);}
-function getStok(mk){return(S.stokHareketler||[]).filter(h=>h.malkod===mk).reduce((s,h)=>s+(h.miktar||0),0);}
+function getStok(mk){return(S.stokHareketler||[]).filter(h=>h.malkod===mk).reduce((s,h)=>s+(h.tip==='cikis'||h.tip==='tuketim'?-(h.miktar||0):(h.miktar||0)),0);}
 function getWOHm(w){
   if(w.hm&&w.hm.length>0)return w.hm;
   const ord=(S.orders||[]).find(o=>o.id===w.orderId);if(!ord)return[];
@@ -674,6 +674,30 @@ async function saveEntry(){
   if(fireQ>0){if(!S.fireLogs)S.fireLogs=[];S.fireLogs.push({id:uid(),malkod:_curWO.malkod,miktar:fireQ,tarih,woId:_curWO.id,not:fireNot});}
   // Kayıt sonrası aktif işten çıkar
   S.activeWork=(S.activeWork||[]).filter(a=>!(a.opId===_curUser?.id&&a.woId===_curWO.id));
+  // ── Stok İşlemleri ──
+  if(q>0&&_curWO.malkod){
+   if(!S.stokHareketler)S.stokHareketler=[];
+   // 1) Üretilen parçayı stoka ekle
+   S.stokHareketler.push({id:uid(),tarih,malkod:_curWO.malkod,malad:_curWO.malad||_curWO.malkod,miktar:q,tip:'giris',aciklama:'Üretim — '+(_curWO.ieNo||'')});
+   // 2) Hammadde tüketimi (WO.hm varsa)
+   const hm=_curWO.hm||[];
+   hm.forEach(h=>{if(h.malkod&&h.miktar){
+    const tuketim=Math.ceil(h.miktar*q/(_curWO.hedef||1));
+    S.stokHareketler.push({id:uid(),tarih,malkod:h.malkod,malad:h.malad||h.malkod,miktar:tuketim,tip:'cikis',aciklama:'Tüketim — '+(_curWO.ieNo||'')});
+   }});
+   // 3) Kesim planı güncelle
+   (S.kesimPlanlari||[]).forEach(p=>{
+    p.satirlar.forEach(s=>{
+     s.kesimler.forEach(k=>{if(k.woId===_curWO.id){k.tamamlandi=Math.min(k.adet,getProduced(_curWO));}});
+     const tumTamam=s.kesimler.every(k=>{const pw=(S.workOrders||[]).find(w=>w.id===k.woId);return pw&&getWPct(pw)>=100;});
+     const birTamam=s.kesimler.some(k=>(k.tamamlandi||0)>0);
+     s.durum=tumTamam?'tamam':birTamam?'kismi':'bekliyor';
+    });
+    const pTamam=p.satirlar.every(s=>s.durum==='tamam');
+    const pKismi=p.satirlar.some(s=>s.durum==='tamam'||s.durum==='kismi');
+    p.durum=pTamam?'tamamlandi':pKismi?'kismi':'bekliyor';
+   });
+  }
   closeModal();await saveData();render();updateActiveBar();
 }
 function uid(){let c=parseInt(localStorage.getItem('_uys_uid_cnt')||'0')+1;localStorage.setItem('_uys_uid_cnt',String(c));return'mob'+Date.now().toString(36)+c.toString(36);}

@@ -944,6 +944,7 @@ function showModal(html){document.getElementById('modal-root').innerHTML=`<div c
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
 // ── Kesim Planları ──
 function syncKesimPlanlar(){
+ var _dirty=false;
  // Kesim planı durumlarını üretim girişlerinden senkronize et
  (S.kesimPlanlari||[]).forEach(function(plan){
   var _isLevha=(plan.hamEn||0)>0;
@@ -965,6 +966,7 @@ function syncKesimPlanlar(){
    satir.durum=tumTamam?'tamam':birTamam?'kismi':'bekliyor';
    // ── Kesim artığı stoka giriş ──
    if(satir.durum==='tamam'&&!satir._artikGirildi){
+    _dirty=true;
     if(_isLevha){
      // Levha: her parcaEn grubu için artık hesapla
      var _enGrup={};
@@ -1022,6 +1024,7 @@ function syncKesimPlanlar(){
   var planKismi=plan.satirlar.some(function(s){return s.durum==='tamam'||s.durum==='kismi';});
   plan.durum=planTamam?'tamamlandi':planKismi?'kismi':'bekliyor';
  });
+ if(_dirty)saveS();
 }
 
 function rKesimPlan(){
@@ -5743,6 +5746,7 @@ function rWarehouse(){
  +'<button class="btn bs" onclick="stokExcelIndir()">📥 Excel İndir</button>'
  +'<label class="btn bs" style="cursor:pointer">📤 Excel Yükle<input type="file" accept=".xlsx,.xls" style="display:none" onchange="stokExcelYukle(event)"></label>'
  +'<button class="btn bs" onclick="showStokGirisModal()">+ Stok Girişi</button>'
+ +'<button class="btn bcy btn-sm" onclick="stokOnar()" title="Eksik stok hareketlerini loglardan oluştur">🔧 Stok Onar</button>'
  +'</div></div>'
  +'<div class="mtab-bar">'
  +'<div class="mtab '+(tab==="stok"?"active":"")+'" onclick="window._whTab=\'stok\';rWarehouse()">Stok Durumu</div>'
@@ -14732,6 +14736,52 @@ async function testModuBaslat(){
   rOrders();rKesimPlan();updateBadges();
   toast('🧪 Test tamamlandı! 19/19 iş emri üretildi.','ok');
  },500);
+}
+
+// ═══ STOK ONARIM: Eksik stok hareketlerini loglardan oluştur ═══
+async function stokOnar(){
+ if(!confirm('Tüm üretim logları taranacak ve eksik stok hareketleri oluşturulacak.\nMevcut stok hareketleri silinmez.\n\nDevam?'))return;
+ if(!S.stokHareketler)S.stokHareketler=[];
+ var mevcutLogIds=new Set(S.stokHareketler.filter(function(h){return h.logId;}).map(function(h){return h.logId;}));
+ var mevcutWoGiris={};
+ S.stokHareketler.forEach(function(h){
+  if(h.tip==='giris'&&h.aciklama&&(h.aciklama.includes('Üretim')||h.aciklama.includes('üretim')||h.aciklama.includes('Mamul'))){
+   mevcutWoGiris[h.malkod+'_'+h.aciklama]=true;
+  }
+ });
+ var eklenen=0;
+ (S.logs||[]).forEach(function(l){
+  var qty=l.qty||0;if(qty<=0)return;
+  var w=getWO(l.woId);if(!w||!w.malkod)return;
+  // Bu log için stok girişi var mı?
+  var girisVar=S.stokHareketler.some(function(h){
+   return h.tip==='giris'&&h.malkod===w.malkod&&h.logId===l.id;
+  });
+  if(girisVar)return;
+  // Üretilen ürün stoka giriş
+  S.stokHareketler.push({
+   id:uid(),tarih:l.tarih||today(),malkod:w.malkod,malad:w.malad||w.malkod,
+   miktar:qty,tip:'giris',logId:l.id,woId:l.woId,
+   aciklama:'Üretim (onarım) — '+(w.ieNo||'')
+  });
+  eklenen++;
+  // Hammadde tüketimi
+  var hm=w.hm||[];
+  hm.forEach(function(h){
+   if(!h.malkod||!h.miktar)return;
+   var tuketim=Math.ceil(h.miktar*qty/(w.hedef||1));
+   S.stokHareketler.push({
+    id:uid(),tarih:l.tarih||today(),malkod:h.malkod,malad:h.malad||h.malkod,
+    miktar:tuketim,tip:'cikis',logId:l.id,woId:l.woId,
+    aciklama:'Tüketim (onarım) — '+(w.ieNo||'')
+   });
+  });
+ });
+ // Kesim planlarını senkronize et (artık dahil)
+ syncKesimPlanlar();
+ await saveS();
+ toast(eklenen+' stok hareketi oluşturuldu (onarım)');
+ rWarehouse();updateBadges();
 }
 
 function fabrikaSifirla(){
