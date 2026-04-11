@@ -339,7 +339,7 @@ function updateActiveBar(){
 
 // === FILTERS (#2,#3) ===
 function populateFilters(){
-  const b=new Set();(S.operations||[]).forEach(o=>{if(o.bolum)b.add(o.bolum);});(S.stations||[]).forEach(s=>{if(s.bolum)b.add(s.bolum);});
+  const b=new Set();(S.workOrders||[]).forEach(w=>{if(w.opAd)b.add(w.opAd);});(S.operators||[]).forEach(o=>{if(o.bolum)b.add(o.bolum);});
   const s=document.getElementById('fBolum');s.innerHTML='<option value="">Tüm Bölümler</option>';
   [...b].sort().forEach(x=>{s.innerHTML+=`<option value="${x}">${x}</option>`;});
   // #3: Auto-select operator's department
@@ -355,7 +355,7 @@ function getFilteredWOs(){
     const pct=getWPct(w),ord=(S.orders||[]).find(o=>o.id===w.orderId);
     if(durum==='aktif'&&pct>=100){const ll=(S.logs||[]).filter(l=>l.woId===w.id).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||''));if(ll.length>0){if((now-new Date(ll[0].tarih).getTime())/86400000>HIDE_DAYS)return false;}else return false;}
     if(durum==='tamam'&&pct<100)return false;
-    if(bolum){const op=(S.operations||[]).find(o=>o.id===w.opId);const st=(S.stations||[]).find(s=>s.id===w.istId);if(!((op?.bolum===bolum)||(st?.bolum===bolum)))return false;}
+    if(bolum){const opAd=(w.opAd||'').toUpperCase();const bU=bolum.toUpperCase();if(!opAd.includes(bU)&&!bU.includes(opAd))return false;}
     if(tip==='mamul'&&w.kirno!=='1')return false;
     if(tip==='ym'&&(w.kirno==='1'||w.kirno?.startsWith('K')))return false;
     if(tip==='kesim'&&!w.kirno?.startsWith('K'))return false;
@@ -412,7 +412,7 @@ function renderUretim(c){
     const o=(S.orders||[]).find(x=>x.id===w.orderId);if(!o||o.durum==='iptal')return false;
     if(getWPct(w)>=100)return false;
     // #3: Only own department
-    if(myBolum){const op=(S.operations||[]).find(x=>x.id===w.opId);const st=(S.stations||[]).find(x=>x.id===w.istId);if(!((op?.bolum===myBolum)||(st?.bolum===myBolum)))return false;}
+    if(myBolum){const opAd=(w.opAd||'').toUpperCase();const myB=myBolum.toUpperCase();if(!opAd.includes(myB)&&!myB.includes(opAd))return false;}
     return true;
   });
   if(!wos.length){c.innerHTML='<div class="empty"><div class="icon">✅</div><div class="msg">'+(myBolum?myBolum+' — açık iş yok':'Tüm işler tamamlandı')+'</div></div>';return;}
@@ -422,7 +422,7 @@ function renderUretim(c){
   // #5: Message to manager
   html+=`<div class="msg-area"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">📨 Yöneticiye Mesaj</div><textarea id="mgrMsg" placeholder="Not veya sorun bildirin..."></textarea><button class="btn secondary" onclick="sendMgrMsg()" style="font-size:11px;padding:6px">Gönder</button></div>`;
   // Group by bolum
-  const byB={};wos.forEach(w=>{const op=(S.operations||[]).find(o=>o.id===w.opId);const b=op?.bolum||'Diğer';if(!byB[b])byB[b]=[];byB[b].push(w);});
+  const byB={};wos.forEach(w=>{const b=w.opAd||'Diğer';if(!byB[b])byB[b]=[];byB[b].push(w);});
   Object.keys(byB).sort().forEach(b=>{html+=`<div class="bolum-hdr">${b}</div>`;byB[b].forEach(w=>{html+=woCard(w);});});
   c.innerHTML=html;
 }
@@ -437,7 +437,7 @@ function woCard(w){
   const pC=pct>=100?'ok':pct>=50?'prog':'warn',fC=pct>=100?'g':pct>=50?'a':pct>=25?'y':'r';
   const k=w.kirno||'',pil=k==='1'?'mm':k.startsWith('K')?'ks':'mk';
   const pT=k==='1'?'BİTMİŞ ÜRÜN':k.startsWith('K')?'KESİM':'ARA İŞLEM'; // #2
-  const op=(S.operations||[]).find(o=>o.id===w.opId),bol=op?.bolum||'';
+  const bol=w.opAd||'';
   // #6: Stok kontrolü
   const sd=woStokDurum(w);
   if(!sd.visible)return`<div class="card stok-yok"><span class="pill" style="background:var(--errD);color:var(--err)">STOK YOK</span><div class="val" style="font-size:12px">${w.malad||'—'}</div><div class="sub">Hammadde stoğu 0 — üretim yapılamaz</div></div>`;
