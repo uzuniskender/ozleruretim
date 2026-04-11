@@ -817,7 +817,8 @@ async function _saveToTables(){
  if(S.ayarlar){
   try{await _sb.from('uys_ayarlar').upsert({key:'ayarlar',value:S.ayarlar});}catch(e){}
  }
-} — çakışmasız sunucu yazma
+}
+// Atomik batch API — çakışmasız sunucu yazma
 async function apiBatch(ops){
  if(!_apiBase)return false;
  try{
