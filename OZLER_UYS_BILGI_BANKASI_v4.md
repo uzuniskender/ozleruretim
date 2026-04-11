@@ -1,7 +1,7 @@
 # Özler UYS — Bilgi Bankası (Tüm Oturumların Özeti)
 
-**Son güncelleme:** 2026-04-10 (oturum 3)  
-**Dosya:** `index.html` (~911 KB) — GitHub Pages'te yayında  
+**Son güncelleme:** 2026-04-11  
+**Dosya:** `index.html` (~915 KB) — GitHub Pages'te yayında  
 **URL (Yönetim):** `https://uzuniskender.github.io/ozleruretim/index.html`  
 **URL (Operatör):** `https://uzuniskender.github.io/ozleruretim/operator.html`  
 **URL (Yedek):** `https://uzuniskender.github.io/ozleruretim/backup.html`  
@@ -100,10 +100,23 @@ ozleruretim/
 | Çalışma saatleri | 07:00–17:00, C.tesi/Pazar kapalı |
 | Şifre | `_uysHash()` cyrb53 hash |
 | Sistem Test | Snapshot alır → test → geri yükle butonu |
+| Stok Onarım | `stokOnar()` — loglardan eksik stok hareketleri oluşturur |
+| Kesim artığı | syncKesimPlanlar: satır tamam → artık malzeme kartı + stok girişi |
+| autoZincir | Sipariş → İE → Kesim Planı → MRP → Tedarik otomatik |
 
 ---
 
 ## 6. VERSİYON GEÇMİŞİ
+
+### v22-online-auth-s4 (2026-04-11)
+- Stok onarım fonksiyonu (stokOnar): eksik stok hareketlerini loglardan geriye dönük oluşturur
+- syncKesimPlanlar artık oluşturduğunda otomatik saveS()
+- Kesim artığı: levha (boy×en) + boy kesim artıkları otomatik malzeme kartı + stok girişi
+- Sevkiyat: sipariş bazlı miktar kontrolü (kalan hesabı, aşım engeli, siparişsiz sevk)
+- Operatör giriş: bölüm → operatör iki aşamalı dropdown (index.html + operator.html)
+- Operatör paneli stok gösterimi: stk/ihtiyaç tam sayı formatı (BOM ratio yerine)
+- Durum filtreleri: fd-drop CSS sınıfı, temiz dropdown tasarım
+- Çoklu seçim checkbox: touched flag ile ilk yükleme sorunu çözüldü
 
 ### v22-online-auth-s3 (2026-04-10 oturum 3)
 - İstek #21: Tam otomatik zincir (autoZincir): Sipariş → İE → Kesim Planı → MRP → Tedarik
