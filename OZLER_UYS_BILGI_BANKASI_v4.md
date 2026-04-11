@@ -32,7 +32,7 @@
 |--------|-----------|
 | Frontend | GitHub Pages statik hosting |
 | Backend | Supabase PostgreSQL (Frankfurt NANO) |
-| Veri | `ayarlar` tablosu key-value (uys_data=JSON) |
+| Veri | `ayarlar` tablosu key-value (uys_data=JSON) + 23 normalize tablo (Faz 2 hibrit) |
 | Auth | Supabase Auth + RLS (2 kullanıcı: admin gmail, operatör servis) |
 | Yedekleme | Otomatik günlük, 30 gün saklama |
 
@@ -108,6 +108,14 @@ ozleruretim/
 
 ## 6. VERSİYON GEÇMİŞİ
 
+### v22-online-auth-s6 (2026-04-11 oturum 6)
+- Normalize Faz 1: 23 Supabase tablosu oluşturuldu (supabase_normalize.sql), migration aracı (normalize.html) ile veri taşındı
+- Normalize Faz 2: loadS() tablolardan okur (fallback: JSON blob), saveS() hem JSON blob'a hem tablolara yazar
+- _TM table map: 19 tablo için camelCase↔snake_case bidirectional mapping
+- _loadFromTables(): Promise.all ile paralel tablo okuma, en az 5 tablo başarılıysa güven
+- _saveToTables(): dirty detection (_qHash), sadece değişen tablolar sync, upsert+delete
+- Güvenlik: JSON blob hala yazılıyor (fallback), tablolar arka planda senkronize
+
 ### v22-online-auth-s5 (2026-04-11 oturum 5)
 - Operatör Mesajları Paneli: Dashboard'da okunmamış mesajlar tablosu, tek/toplu okundu işaretle, silme
 - activeWork Canlı Takip: Dashboard'da hangi operatör hangi İE'de çalışıyor, süre hesabı
@@ -180,8 +188,8 @@ ozleruretim/
 - [x] Kesim planı: yeni sipariş gelince mevcut planı güncelle/birleştir (zaten mevcut — mevcutPlan check)
 
 ### Diğer
-- [ ] Normalize veri geçişi (tek JSON → ayrı tablolar)
-- [ ] Realtime senkronizasyon
+- [x] Normalize veri geçişi (Faz 1: tablolar + migration, Faz 2: loadS/saveS hibrit)
+- [ ] Realtime senkronizasyon (Faz 3: Supabase Realtime subscription)
 - [x] Yönetici: operatör mesajları paneli
 - [x] Yönetici: activeWork canlı takip
 - [ ] Misafir girişi (read-only)
