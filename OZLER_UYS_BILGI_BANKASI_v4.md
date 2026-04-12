@@ -1,11 +1,13 @@
 # Özler UYS — Bilgi Bankası (Tüm Oturumların Özeti)
 
-**Son güncelleme:** 2026-04-11  
+**Son güncelleme:** 2026-04-12  
 **Dosya:** `index.html` (~915 KB) — GitHub Pages'te yayında  
 **URL (Yönetim):** `https://uzuniskender.github.io/ozleruretim/index.html`  
 **URL (Operatör):** `https://uzuniskender.github.io/ozleruretim/operator.html`  
 **URL (Yedek):** `https://uzuniskender.github.io/ozleruretim/backup.html`  
+**URL (UYS v3):** `https://uzuniskender.github.io/ozler-uys-v3/` (React rewrite)  
 **GitHub Repo:** `https://github.com/uzuniskender/ozleruretim` (Public)  
+**GitHub Repo (v3):** `https://github.com/uzuniskender/ozler-uys-v3` (Public)  
 **Supabase Projesi:** `ozler-uys` (kudpuqqxxkhuxhhxqbjw, Frankfurt, NANO)  
 **Publishable Key:** `sb_publishable_duHYEBjaaf4wDQvZLf66hQ_tSmyDM4p`  
 **Veri saklama:** Supabase `ayarlar` tablosu (key='uys_data') + localStorage cache  
@@ -113,6 +115,88 @@ ozleruretim/
 - operator.html normalize: tablolardan okuma (loadData), tablolara yazma (saveData), JSON blob fallback korunuyor
 - operator.html realtime: tablolardan reload (_rtReloadFromTables) — JSON blob'a bağımlılık kaldırıldı
 - _WRITE_TABLES: operatörün yazdığı 5 tablo (logs, stokHareketler, fireLogs, operatorNotes, activeWork)
+- Operatör bölüm filtre fix: opAd eşleşmesi (operations.bolum yerine)
+- Operatör mesaj doğrudan tablo yazma (sendMgrMsg → uys_operator_notes upsert)
+- index.html periyodik mesaj poll (15sn) — realtime'a ek güvenlik ağı
+
+---
+
+## 13. UYS v3 — REACT REWRITE
+
+**Repo:** `https://github.com/uzuniskender/ozler-uys-v3`
+**URL:** `https://uzuniskender.github.io/ozler-uys-v3/`
+**Stack:** React 19 + Vite + TypeScript + Tailwind CSS v4 + Zustand + Supabase
+**Deploy:** GitHub Pages + GitHub Actions (auto-deploy on push)
+**Geliştirme:** GitHub Desktop ile local → commit → push
+
+### Mimari
+| Katman | Teknoloji |
+|--------|-----------|
+| Frontend | React 19 + Vite + TypeScript (strict) |
+| UI | Tailwind CSS v4 + Lucide Icons |
+| State | Zustand (19 tablo mapper, loadAll) |
+| Backend | Supabase (aynı 23 tablo, normalize) |
+| Auth | Supabase Auth (email/password) |
+| Realtime | Supabase Realtime (7 tablo subscription) |
+| Toast | Sonner |
+| Excel | SheetJS (xlsx) — dynamic import |
+| Routing | React Router v7 (HashRouter) |
+| Deploy | GitHub Actions → GitHub Pages |
+
+### Dizin Yapısı
+```
+ozler-uys-v3/
+├── src/
+│   ├── App.tsx              ← Router + Auth + Realtime
+│   ├── main.tsx             ← Entry point
+│   ├── index.css            ← Tailwind + koyu tema
+│   ├── components/layout/   ← Sidebar, Topbar, Layout
+│   ├── hooks/               ← useAuth, useRealtime
+│   ├── lib/                 ← supabase.ts, utils.ts
+│   ├── store/               ← Zustand store + 19 mapper
+│   ├── types/               ← TypeScript tip tanımları
+│   └── pages/               ← 17 sayfa
+├── .github/workflows/deploy.yml
+├── .env.local               ← Supabase credentials
+└── vite.config.ts           ← base: '/ozler-uys-v3/'
+```
+
+### Sayfalar (18 toplam)
+| Sayfa | Route | Durum |
+|-------|-------|-------|
+| Login | /login | ✅ Tam |
+| Dashboard | / | ✅ Tam (kartlar, mesajlar, aktif çalışmalar, terminler) |
+| Siparişler | /orders | ✅ CRUD + filtre + detay + Excel |
+| İş Emirleri | /work-orders | ✅ Gruplu görünüm + ilerleme |
+| Üretim Girişi | /production | ✅ Form (miktar + fire + operatör + stok) |
+| Kesim Planları | /cutting | ✅ Liste + durum |
+| Depolar | /warehouse | ✅ Anlık stok + hareketler |
+| Sevkiyat | /shipment | ✅ Liste |
+| Ürün Ağaçları | /bom | ✅ Liste + ağaç detay |
+| Reçeteler | /recipes | ✅ Liste + kırılım detay |
+| Malzeme Listesi | /materials | ✅ 536 kayıt + tip filtre |
+| Operasyonlar | /operations | ✅ CRUD |
+| İstasyonlar | /stations | ✅ Liste + operasyon eşleme |
+| Operatörler | /operators | ✅ CRUD + bölüm + aktif/pasif |
+| Tedarikçiler | /suppliers | ✅ Liste |
+| Duruş Kodları | /downtime-codes | ✅ Kategorili + CRUD |
+| Raporlar | /reports | ✅ 4 sekme (Özet, Günlük, Fire, Operasyon) |
+| Veri Yönetimi | /data | ✅ Tablo özeti + JSON yedek |
+
+### Store Mapper (snake_case ↔ camelCase)
+19 tablo için bidirectional mapping: orders, workOrders, logs, materials, operations, stations, operators, recipes, bomTrees, stokHareketler, cuttingPlans, tedarikler, tedarikciler, durusKodlari, customers, sevkler, operatorNotes, activeWork, fireLogs
+
+### v3 Backlog
+- [ ] Sipariş düzenleme
+- [ ] autoZincir (sipariş → İE → kesim → MRP → tedarik)
+- [ ] MRP hesaplama modal
+- [ ] Kesim planı detay + optimizasyon
+- [ ] Sevkiyat oluşturma formu
+- [ ] Operatör paneli (/operator route)
+- [ ] Raporlara grafik (Recharts)
+- [ ] PDF çıktı (iş emri, sevk irsaliyesi)
+- [ ] Toplu sipariş Excel import
+- [ ] Çakışma yönetimi (concurrent edit)
 
 ### v22-online-auth-s7 (2026-04-11 oturum 7)
 - Realtime Sync: Supabase Realtime subscription, 10 kritik tablo (logs, workOrders, orders, stokHareketler, operatorNotes, activeWork, fireLogs, tedarikler, sevkler, kesimPlanlari)
